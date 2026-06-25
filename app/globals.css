@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: #0c0a14;
+  color: #f5f3fa;
+  min-height: 100vh;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(255, 93, 143, 0.18), transparent 35%),
+    radial-gradient(circle at 85% 80%, rgba(167, 139, 250, 0.18), transparent 35%),
+    url('/bg.png');
+  background-size: cover, cover, cover;
+  background-position: center, center, center;
+  background-attachment: fixed;
+  background-blend-mode: normal, normal, overlay;
+}
+
+/* Glassmorphism card */
+.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Romantic gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #ff8fb1, #c4b5fd);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 93, 143, 0.4);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Floating particle animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.6; }
+  50% { transform: translateY(-30px) translateX(10px); opacity: 1; }
+}
+.particle {
+  animation: float 8s ease-in-out infinite;
+}
