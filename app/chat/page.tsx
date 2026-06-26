@@ -818,21 +818,15 @@ export default function ChatPage() {
                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
                     className="absolute bottom-full mb-2 right-0 glass rounded-2xl px-3 py-2 shadow-lg"
                   >
-                    <div className="grid grid-cols-4 gap-1.5">
-                      <button type="button" onClick={handleHug} className="text-xl hover:scale-125 transition-transform">🤗</button>
-                      <button type="button" onClick={handleKiss} className="text-xl hover:scale-125 transition-transform">💋</button>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => insertEmoji('🤗')} className="text-xl hover:scale-125 transition-transform">🤗</button>
+                      <button type="button" onClick={() => insertEmoji('💋')} className="text-xl hover:scale-125 transition-transform">💋</button>
                       <button type="button" onClick={() => insertEmoji('❤️')} className="text-xl hover:scale-125 transition-transform">❤️</button>
-                      <button type="button" onClick={() => insertEmoji('🧡')} className="text-xl hover:scale-125 transition-transform">🧡</button>
-                      <button type="button" onClick={() => insertEmoji('💛')} className="text-xl hover:scale-125 transition-transform">💛</button>
-                      <button type="button" onClick={() => insertEmoji('💚')} className="text-xl hover:scale-125 transition-transform">💚</button>
-                      <button type="button" onClick={() => insertEmoji('💙')} className="text-xl hover:scale-125 transition-transform">💙</button>
-                      <button type="button" onClick={() => insertEmoji('💜')} className="text-xl hover:scale-125 transition-transform">💜</button>
-                      <button type="button" onClick={() => insertEmoji('🖤')} className="text-xl hover:scale-125 transition-transform">🖤</button>
-                      <button type="button" onClick={() => insertEmoji('🤍')} className="text-xl hover:scale-125 transition-transform">🤍</button>
-                      <button type="button" onClick={() => insertEmoji('💘')} className="text-xl hover:scale-125 transition-transform">💘</button>
-                      <button type="button" onClick={() => insertEmoji('💝')} className="text-xl hover:scale-125 transition-transform">💝</button>
-                      <button type="button" onClick={() => insertEmoji('💟')} className="text-xl hover:scale-125 transition-transform">💟</button>
-                      <button type="button" onClick={() => insertEmoji('🩷')} className="text-xl hover:scale-125 transition-transform">🩷</button>
+                      <button type="button" onClick={() => insertEmoji('😍')} className="text-xl hover:scale-125 transition-transform">😍</button>
+                      <button type="button" onClick={() => insertEmoji('🥰')} className="text-xl hover:scale-125 transition-transform">🥰</button>
+                      <button type="button" onClick={() => insertEmoji('😘')} className="text-xl hover:scale-125 transition-transform">😘</button>
+                      <button type="button" onClick={() => insertEmoji('💕')} className="text-xl hover:scale-125 transition-transform">💕</button>
+                      <button type="button" onClick={() => insertEmoji('💖')} className="text-xl hover:scale-125 transition-transform">💖</button>
                     </div>
                   </motion.div>
                 )}
