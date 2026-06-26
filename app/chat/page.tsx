@@ -342,12 +342,23 @@ export default function ChatPage() {
       setPartnerOnline(online.some((id) => id !== user?.id));
     });
 
+    let emojiSlot = 0;
+    const emojiPositions = [
+      { x: 15, startY: 50 },
+      { x: 40, startY: 35 },
+      { x: 65, startY: 55 },
+      { x: 85, startY: 40 },
+      { x: 30, startY: 70 },
+      { x: 55, startY: 30 },
+      { x: 75, startY: 65 },
+      { x: 20, startY: 45 },
+    ];
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
       const id = Date.now() + Math.random();
-      const x = 10 + Math.random() * 80;
-      const startY = 40 + Math.random() * 50;
-      const delay = Math.random() * 0.5;
-      setFloatingEmojis((prev) => [...prev, { id, emoji, x, startY, delay }]);
+      const pos = emojiPositions[emojiSlot % emojiPositions.length];
+      emojiSlot++;
+      const delay = (emojiSlot % 3) * 0.15;
+      setFloatingEmojis((prev) => [...prev, { id, emoji, x: pos.x, startY: pos.startY, delay }]);
       setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2500);
     });
 
@@ -949,11 +960,11 @@ export default function ChatPage() {
           {floatingEmojis.map((e) => (
             <motion.div
               key={e.id}
-              initial={{ opacity: 1, y: 0, scale: 0.4 }}
-              animate={{ opacity: 0, y: -250, scale: 2 }}
+              initial={{ opacity: 1, y: 0, scale: 0.3 }}
+              animate={{ opacity: 0, y: -250, scale: 2.2 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 2, delay: e.delay, ease: 'easeOut' }}
-              className="fixed pointer-events-none z-50 text-4xl sm:text-6xl"
+              className="fixed pointer-events-none z-50 text-5xl sm:text-7xl"
               style={{ left: `${e.x}vw`, bottom: `${e.startY}px` }}
             >
               {e.emoji}
