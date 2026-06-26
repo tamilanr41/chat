@@ -37,8 +37,6 @@ interface StickerItem {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
-const EMOJIS = ['❤️', '😍', '😂', '😢', '😮', '🔥', '💔', '👍'];
-
 function formatTime(date: string) {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -250,7 +248,6 @@ export default function ChatPage() {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [partnerName, setPartnerName] = useState('');
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number; driftX: number; travelY: number; scaleTarget: number }[]>([]);
   const [showNavMenu, setShowNavMenu] = useState(false);
@@ -487,12 +484,6 @@ export default function ChatPage() {
 
   const handleDelete = async (id: string) => {
     await api.delete(`/chat/messages/${id}`);
-  };
-
-  const insertEmoji = (emoji: string) => {
-    setText((prev) => prev + emoji);
-    inputRef.current?.focus();
-    setShowEmojiPicker(false);
   };
 
   const handleHug = () => {
@@ -808,18 +799,6 @@ export default function ChatPage() {
               rows={1}
               className="flex-1 bg-transparent rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-white/30 resize-none overflow-y-auto max-h-32"
             />
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
-              </svg>
-            </button>
             <div className="relative shrink-0">
               <button
                 type="button"
@@ -863,29 +842,6 @@ export default function ChatPage() {
               </svg>
             </motion.button>
           </form>
-
-          {/* Emoji picker */}
-          <AnimatePresence>
-            {showEmojiPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="glass rounded-2xl p-3 max-w-md mx-auto mt-2 flex gap-2 flex-wrap justify-center"
-              >
-                {EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => insertEmoji(emoji)}
-                    className="text-xl hover:scale-125 transition-transform p-1"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Sticker picker */}
           <AnimatePresence>
