@@ -344,14 +344,14 @@ export default function ChatPage() {
 
     let emojiSlot = 0;
     const emojiTrajectories = [
-      { x: 12, startY: 50, driftX: 35, travelY: -220, scaleTarget: 2.5 },
-      { x: 78, startY: 60, driftX: -35, travelY: -200, scaleTarget: 2.2 },
-      { x: 42, startY: 35, driftX: 20, travelY: -280, scaleTarget: 2.8 },
-      { x: 88, startY: 75, driftX: -25, travelY: -180, scaleTarget: 2.0 },
-      { x: 25, startY: 80, driftX: 30, travelY: -250, scaleTarget: 2.4 },
-      { x: 60, startY: 45, driftX: -20, travelY: -230, scaleTarget: 2.6 },
-      { x: 50, startY: 90, driftX: 0, travelY: -300, scaleTarget: 3.0 },
-      { x: 35, startY: 30, driftX: 25, travelY: -200, scaleTarget: 2.0 },
+      { x: 12, startY: 10, driftX: 30, travelY: 280, scaleTarget: 2.5 },
+      { x: 78, startY: 15, driftX: -30, travelY: 250, scaleTarget: 2.2 },
+      { x: 42, startY: 8, driftX: 20, travelY: 320, scaleTarget: 2.8 },
+      { x: 88, startY: 20, driftX: -25, travelY: 220, scaleTarget: 2.0 },
+      { x: 25, startY: 12, driftX: 30, travelY: 300, scaleTarget: 2.4 },
+      { x: 60, startY: 8, driftX: -20, travelY: 280, scaleTarget: 2.6 },
+      { x: 50, startY: 15, driftX: 0, travelY: 350, scaleTarget: 3.0 },
+      { x: 35, startY: 10, driftX: 25, travelY: 260, scaleTarget: 2.0 },
     ];
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
       const id = Date.now() + Math.random();
@@ -965,7 +965,7 @@ export default function ChatPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 2.2, delay: e.delay, ease: 'easeOut' }}
               className="fixed pointer-events-none z-50 text-5xl sm:text-7xl"
-              style={{ left: `${e.x}vw`, bottom: `${e.startY}px` }}
+              style={{ left: `${e.x}vw`, top: `${e.startY}px` }}
             >
               {e.emoji}
             </motion.div>
