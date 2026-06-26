@@ -344,9 +344,9 @@ export default function ChatPage() {
 
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
       const id = Date.now() + Math.random();
-      const x = 5 + Math.random() * 90;
-      const startY = 20 + Math.random() * 60;
-      const delay = Math.random() * 0.6;
+      const x = 10 + Math.random() * 80;
+      const startY = 40 + Math.random() * 50;
+      const delay = Math.random() * 0.5;
       setFloatingEmojis((prev) => [...prev, { id, emoji, x, startY, delay }]);
       setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2500);
     });
@@ -950,10 +950,10 @@ export default function ChatPage() {
             <motion.div
               key={e.id}
               initial={{ opacity: 1, y: 0, scale: 0.4 }}
-              animate={{ opacity: 0, y: -300, scale: 3 }}
+              animate={{ opacity: 0, y: -250, scale: 2 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2.2, delay: e.delay, ease: 'easeOut' }}
-              className="fixed pointer-events-none z-50 text-6xl"
+              transition={{ duration: 2, delay: e.delay, ease: 'easeOut' }}
+              className="fixed pointer-events-none z-50 text-4xl sm:text-6xl"
               style={{ left: `${e.x}vw`, bottom: `${e.startY}px` }}
             >
               {e.emoji}
