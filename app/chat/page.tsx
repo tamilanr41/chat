@@ -265,6 +265,7 @@ export default function ChatPage() {
   const [showLovePicker, setShowLovePicker] = useState(false);
   const [stickers, setStickers] = useState<StickerItem[]>([]);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const stickerInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
@@ -735,87 +736,46 @@ export default function ChatPage() {
               onChange={handleImageSelect}
               className="hidden"
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21,15 16,10 5,21" />
-              </svg>
-            </button>
-            {!isRecording ? (
+            <div className="relative shrink-0">
               <button
                 type="button"
-                onClick={startRecording}
-                className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
+                onClick={() => setShowAttachMenu(!showAttachMenu)}
+                className="p-2 rounded-xl hover:bg-white/10 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="22" />
-                </svg>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={stopRecording}
-                className="shrink-0 p-2 rounded-xl bg-red-500/30 text-red-300 font-mono text-xs flex items-center gap-1"
-              >
-                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                {String(recordingTime).padStart(2, '0')}s
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowStickerPicker(!showStickerPicker)}
-              className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="M20.2 20.2a3 3 0 0 1-4.2 0L3 7.8" />
-                <path d="M21 12a9 9 0 1 1-9-9" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
-              </svg>
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowLovePicker(!showLovePicker)}
-                className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-red-400">
-                  <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.218l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                 </svg>
               </button>
               <AnimatePresence>
-                {showLovePicker && (
+                {showAttachMenu && (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 glass rounded-2xl px-3 py-2 flex gap-3 shadow-lg"
+                    className="absolute bottom-full mb-2 left-0 glass rounded-2xl px-2 py-2 flex gap-2 shadow-lg z-10"
                   >
-                    <button type="button" onClick={handleHug} className="text-2xl hover:scale-125 transition-transform">🤗</button>
-                    <button type="button" onClick={handleKiss} className="text-2xl hover:scale-125 transition-transform">💋</button>
+                    <button type="button" onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">📷</span>
+                      <span className="text-[9px] text-white/40">Photo</span>
+                    </button>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); if (!isRecording) startRecording(); else stopRecording(); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">{isRecording ? '⏹️' : '🎤'}</span>
+                      <span className="text-[9px] text-white/40">{isRecording ? 'Stop' : 'Voice'}</span>
+                    </button>
+                    <button type="button" onClick={() => { setShowStickerPicker(!showStickerPicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">🎨</span>
+                      <span className="text-[9px] text-white/40">Sticker</span>
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
+            {isRecording && (
+              <button type="button" onClick={stopRecording} className="shrink-0 p-2 rounded-xl bg-red-500/30 text-red-300 font-mono text-xs flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                {String(recordingTime).padStart(2, '0')}s
+              </button>
+            )}
             <textarea
               ref={inputRef}
               value={text}
@@ -830,6 +790,42 @@ export default function ChatPage() {
               rows={1}
               className="flex-1 bg-transparent rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-white/30 resize-none overflow-y-auto max-h-32"
             />
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="shrink-0 p-2 rounded-xl hover:bg-white/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                <line x1="9" y1="9" x2="9.01" y2="9" />
+                <line x1="15" y1="9" x2="15.01" y2="9" />
+              </svg>
+            </button>
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowLovePicker(!showLovePicker)}
+                className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-red-400">
+                  <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.218l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+                </svg>
+              </button>
+              <AnimatePresence>
+                {showLovePicker && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                    className="absolute bottom-full mb-2 right-0 glass rounded-2xl px-3 py-2 flex gap-3 shadow-lg"
+                  >
+                    <button type="button" onClick={handleHug} className="text-2xl hover:scale-125 transition-transform">🤗</button>
+                    <button type="button" onClick={handleKiss} className="text-2xl hover:scale-125 transition-transform">💋</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <motion.button
               whileTap={{ scale: 0.92 }}
               type="submit"
