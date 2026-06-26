@@ -339,23 +339,9 @@ export default function ChatPage() {
       setPartnerOnline(online.some((id) => id !== user?.id));
     });
 
-    let emojiSlot = 0;
-    const emojiTrajectories = [
-      { x: 12, startY: 10, driftX: 30, travelY: 280, scaleTarget: 2.5 },
-      { x: 78, startY: 15, driftX: -30, travelY: 250, scaleTarget: 2.2 },
-      { x: 42, startY: 8, driftX: 20, travelY: 320, scaleTarget: 2.8 },
-      { x: 88, startY: 20, driftX: -25, travelY: 220, scaleTarget: 2.0 },
-      { x: 25, startY: 12, driftX: 30, travelY: 300, scaleTarget: 2.4 },
-      { x: 60, startY: 8, driftX: -20, travelY: 280, scaleTarget: 2.6 },
-      { x: 50, startY: 15, driftX: 0, travelY: 350, scaleTarget: 3.0 },
-      { x: 35, startY: 10, driftX: 25, travelY: 260, scaleTarget: 2.0 },
-    ];
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
       const id = Date.now() + Math.random();
-      const t = emojiTrajectories[emojiSlot % emojiTrajectories.length];
-      emojiSlot++;
-      const delay = (emojiSlot % 4) * 0.2;
-      setFloatingEmojis((prev) => [...prev, { id, emoji, x: t.x, startY: t.startY, delay, driftX: t.driftX, travelY: t.travelY, scaleTarget: t.scaleTarget }]);
+      setFloatingEmojis((prev) => [...prev, { id, emoji, x: 50, startY: 50, delay: 0, driftX: 0, travelY: -300, scaleTarget: 4 }]);
       setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2600);
     });
 
@@ -502,9 +488,8 @@ export default function ChatPage() {
     setShowLovePicker(false);
   };
 
-  const insertEmoji = (emoji: string) => {
-    setText((prev) => prev + emoji);
-    inputRef.current?.focus();
+  const sendEmoji = (emoji: string) => {
+    getSocket()?.emit('send:emoji', { emoji });
     setShowLovePicker(false);
   };
 
@@ -816,17 +801,17 @@ export default function ChatPage() {
                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full mb-2 right-0 glass rounded-2xl px-3 py-2 shadow-lg"
+                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 glass rounded-2xl px-3 py-2 shadow-lg"
                   >
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => insertEmoji('🤗')} className="text-xl hover:scale-125 transition-transform">🤗</button>
-                      <button type="button" onClick={() => insertEmoji('💋')} className="text-xl hover:scale-125 transition-transform">💋</button>
-                      <button type="button" onClick={() => insertEmoji('❤️')} className="text-xl hover:scale-125 transition-transform">❤️</button>
-                      <button type="button" onClick={() => insertEmoji('😍')} className="text-xl hover:scale-125 transition-transform">😍</button>
-                      <button type="button" onClick={() => insertEmoji('🥰')} className="text-xl hover:scale-125 transition-transform">🥰</button>
-                      <button type="button" onClick={() => insertEmoji('😘')} className="text-xl hover:scale-125 transition-transform">😘</button>
-                      <button type="button" onClick={() => insertEmoji('💕')} className="text-xl hover:scale-125 transition-transform">💕</button>
-                      <button type="button" onClick={() => insertEmoji('💖')} className="text-xl hover:scale-125 transition-transform">💖</button>
+                      <button type="button" onClick={() => sendEmoji('🤗')} className="text-xl hover:scale-125 transition-transform">🤗</button>
+                      <button type="button" onClick={() => sendEmoji('💋')} className="text-xl hover:scale-125 transition-transform">💋</button>
+                      <button type="button" onClick={() => sendEmoji('❤️')} className="text-xl hover:scale-125 transition-transform">❤️</button>
+                      <button type="button" onClick={() => sendEmoji('😍')} className="text-xl hover:scale-125 transition-transform">😍</button>
+                      <button type="button" onClick={() => sendEmoji('🥰')} className="text-xl hover:scale-125 transition-transform">🥰</button>
+                      <button type="button" onClick={() => sendEmoji('😘')} className="text-xl hover:scale-125 transition-transform">😘</button>
+                      <button type="button" onClick={() => sendEmoji('💕')} className="text-xl hover:scale-125 transition-transform">💕</button>
+                      <button type="button" onClick={() => sendEmoji('💖')} className="text-xl hover:scale-125 transition-transform">💖</button>
                     </div>
                   </motion.div>
                 )}
@@ -912,17 +897,16 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Floating emoji animation — each with unique trajectory */}
+        {/* Floating emoji animation — center screen */}
         <AnimatePresence>
           {floatingEmojis.map((e) => (
             <motion.div
               key={e.id}
-              initial={{ opacity: 1, y: 0, x: 0, scale: 0.3 }}
-              animate={{ opacity: 0, y: e.travelY, x: e.driftX, scale: e.scaleTarget }}
+              initial={{ opacity: 1, scale: 0.5 }}
+              animate={{ opacity: 0, scale: 4, y: -200 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2.2, delay: e.delay, ease: 'easeOut' }}
-              className="fixed pointer-events-none z-50 text-5xl sm:text-7xl"
-              style={{ left: `${e.x}vw`, top: `${e.startY}px` }}
+              transition={{ duration: 2.2, ease: 'easeOut' }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50 text-7xl"
             >
               {e.emoji}
             </motion.div>
