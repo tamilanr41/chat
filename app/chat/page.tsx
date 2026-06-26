@@ -801,7 +801,7 @@ export default function ChatPage() {
                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 glass rounded-2xl px-3 py-2 shadow-lg"
+                    className="fixed bottom-20 left-1/2 -translate-x-1/2 glass rounded-2xl px-3 py-2 shadow-lg"
                   >
                     <div className="flex gap-2">
                       <button type="button" onClick={() => sendEmoji('🤗')} className="text-xl hover:scale-125 transition-transform">🤗</button>
