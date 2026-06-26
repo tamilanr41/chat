@@ -252,7 +252,7 @@ export default function ChatPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [partnerName, setPartnerName] = useState('');
-  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number }[]>([]);
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number }[]>([]);
   const [showNavMenu, setShowNavMenu] = useState(false);
   const [showMenuBtn, setShowMenuBtn] = useState(false);
   const [floatingKisses, setFloatingKisses] = useState<{ id: number }[]>([]);
@@ -344,9 +344,11 @@ export default function ChatPage() {
 
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
       const id = Date.now() + Math.random();
-      const x = Math.random() * 60 + 20;
-      setFloatingEmojis((prev) => [...prev, { id, emoji, x }]);
-      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2000);
+      const x = 5 + Math.random() * 90;
+      const startY = 20 + Math.random() * 60;
+      const delay = Math.random() * 0.6;
+      setFloatingEmojis((prev) => [...prev, { id, emoji, x, startY, delay }]);
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2500);
     });
 
     socket.on('receive:kiss', () => {
@@ -942,17 +944,17 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Floating emoji animation — only on receiver's screen */}
+        {/* Floating emoji animation — spread out, no overlap */}
         <AnimatePresence>
           {floatingEmojis.map((e) => (
             <motion.div
               key={e.id}
-              initial={{ opacity: 1, y: 0, x: `${e.x}vw`, scale: 0.5 }}
-              animate={{ opacity: 0, y: -350, scale: 3 }}
+              initial={{ opacity: 1, y: 0, scale: 0.4 }}
+              animate={{ opacity: 0, y: -300, scale: 3 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2, ease: 'easeOut' }}
-              className="fixed bottom-32 pointer-events-none z-50 text-6xl"
-              style={{ left: `${e.x}vw` }}
+              transition={{ duration: 2.2, delay: e.delay, ease: 'easeOut' }}
+              className="fixed pointer-events-none z-50 text-6xl"
+              style={{ left: `${e.x}vw`, bottom: `${e.startY}px` }}
             >
               {e.emoji}
             </motion.div>
