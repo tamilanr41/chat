@@ -252,7 +252,7 @@ export default function ChatPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [partnerName, setPartnerName] = useState('');
-  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number }[]>([]);
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number; driftX: number; travelY: number; scaleTarget: number }[]>([]);
   const [showNavMenu, setShowNavMenu] = useState(false);
   const [showMenuBtn, setShowMenuBtn] = useState(false);
   const [floatingKisses, setFloatingKisses] = useState<{ id: number }[]>([]);
@@ -343,23 +343,23 @@ export default function ChatPage() {
     });
 
     let emojiSlot = 0;
-    const emojiPositions = [
-      { x: 15, startY: 50 },
-      { x: 40, startY: 35 },
-      { x: 65, startY: 55 },
-      { x: 85, startY: 40 },
-      { x: 30, startY: 70 },
-      { x: 55, startY: 30 },
-      { x: 75, startY: 65 },
-      { x: 20, startY: 45 },
+    const emojiTrajectories = [
+      { x: 12, startY: 50, driftX: 35, travelY: -220, scaleTarget: 2.5 },
+      { x: 78, startY: 60, driftX: -35, travelY: -200, scaleTarget: 2.2 },
+      { x: 42, startY: 35, driftX: 20, travelY: -280, scaleTarget: 2.8 },
+      { x: 88, startY: 75, driftX: -25, travelY: -180, scaleTarget: 2.0 },
+      { x: 25, startY: 80, driftX: 30, travelY: -250, scaleTarget: 2.4 },
+      { x: 60, startY: 45, driftX: -20, travelY: -230, scaleTarget: 2.6 },
+      { x: 50, startY: 90, driftX: 0, travelY: -300, scaleTarget: 3.0 },
+      { x: 35, startY: 30, driftX: 25, travelY: -200, scaleTarget: 2.0 },
     ];
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
       const id = Date.now() + Math.random();
-      const pos = emojiPositions[emojiSlot % emojiPositions.length];
+      const t = emojiTrajectories[emojiSlot % emojiTrajectories.length];
       emojiSlot++;
-      const delay = (emojiSlot % 3) * 0.15;
-      setFloatingEmojis((prev) => [...prev, { id, emoji, x: pos.x, startY: pos.startY, delay }]);
-      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2500);
+      const delay = (emojiSlot % 4) * 0.2;
+      setFloatingEmojis((prev) => [...prev, { id, emoji, x: t.x, startY: t.startY, delay, driftX: t.driftX, travelY: t.travelY, scaleTarget: t.scaleTarget }]);
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 2600);
     });
 
     socket.on('receive:kiss', () => {
@@ -955,15 +955,15 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Floating emoji animation — spread out, no overlap */}
+        {/* Floating emoji animation — each with unique trajectory */}
         <AnimatePresence>
           {floatingEmojis.map((e) => (
             <motion.div
               key={e.id}
-              initial={{ opacity: 1, y: 0, scale: 0.3 }}
-              animate={{ opacity: 0, y: -250, scale: 2.2 }}
+              initial={{ opacity: 1, y: 0, x: 0, scale: 0.3 }}
+              animate={{ opacity: 0, y: e.travelY, x: e.driftX, scale: e.scaleTarget }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2, delay: e.delay, ease: 'easeOut' }}
+              transition={{ duration: 2.2, delay: e.delay, ease: 'easeOut' }}
               className="fixed pointer-events-none z-50 text-5xl sm:text-7xl"
               style={{ left: `${e.x}vw`, bottom: `${e.startY}px` }}
             >
