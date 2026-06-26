@@ -127,7 +127,7 @@ export default function InvitePage() {
             </p>
 
             <div className="bg-white/5 border border-white/10 rounded-2xl py-4 px-6 mb-4">
-              <span className="text-2xl font-mono tracking-widest text-primary-light">
+              <span className="text-lg sm:text-2xl font-mono tracking-wider sm:tracking-widest text-primary-light break-all">
                 {inviteCode}
               </span>
             </div>

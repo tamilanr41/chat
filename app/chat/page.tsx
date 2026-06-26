@@ -124,7 +124,7 @@ function MessageBubble({
             <span className="text-primary-light font-medium">
               {msg.replyTo.sender?.name || 'Unknown'}
             </span>
-            <p className="text-white/40 truncate max-w-[200px]">{msg.replyTo.text}</p>
+                    <p className="text-white/40 truncate max-w-[120px] sm:max-w-[200px]">{msg.replyTo.text}</p>
           </div>
         )}
 
@@ -159,7 +159,7 @@ function MessageBubble({
             <audio
               src={`${API_BASE}${msg.text}`}
               controls
-              className="max-w-[220px] h-10"
+              className="max-w-full h-10"
               preload="metadata"
             />
           ) : (

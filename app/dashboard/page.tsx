@@ -378,7 +378,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Notes grid */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {notes.length === 0 && (
               <p className="col-span-2 text-center text-white/20 text-xs py-6">
                 No notes yet. Leave one for your partner! 💕
@@ -426,7 +426,7 @@ export default function DashboardPage() {
           className="glass rounded-3xl p-5 text-center"
         >
           <p className="text-white/50 text-xs mb-3">Send a reaction</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
             {['😍', '❤️', '😂', '😘', '🥰', '😮', '🔥', '💔'].map((emoji) => (
               <motion.button
                 key={emoji}

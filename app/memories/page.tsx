@@ -206,7 +206,7 @@ export default function MemoriesPage() {
 
                   {/* Polaroid card */}
                   <div
-                    className="bg-white rounded-[1px] p-[10px] pb-[22px] w-52 relative"
+                    className="bg-white rounded-[1px] p-[10px] pb-[22px] w-44 sm:w-52 relative"
                     style={{
                       boxShadow:
                         '0 2px 8px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.18)',
