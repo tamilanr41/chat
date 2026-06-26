@@ -266,7 +266,7 @@ export default function ChatPage() {
   const [stickers, setStickers] = useState<StickerItem[]>([]);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const stickerInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -391,6 +391,10 @@ export default function ChatPage() {
 
   const handleTyping = (value: string) => {
     setText(value);
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 128) + 'px';
+    }
     const socket = getSocket();
     if (!socket) return;
     socket.emit('typing:start');
@@ -812,12 +816,19 @@ export default function ChatPage() {
                 )}
               </AnimatePresence>
             </div>
-            <input
+            <textarea
               ref={inputRef}
               value={text}
               onChange={(e) => handleTyping(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  (e.target as HTMLTextAreaElement).form?.requestSubmit();
+                }
+              }}
               placeholder={previewFile ? 'Add a caption...' : 'Type a message...'}
-              className="flex-1 bg-transparent rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-white/30 max-h-24"
+              rows={1}
+              className="flex-1 bg-transparent rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-white/30 resize-none overflow-y-auto max-h-32"
             />
             <motion.button
               whileTap={{ scale: 0.92 }}
