@@ -498,6 +498,11 @@ export default function ChatPage() {
     setShowLovePicker(false);
   };
 
+  const handleReaction = (emoji: string) => {
+    getSocket()?.emit('send:emoji', { emoji });
+    setShowLovePicker(false);
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -818,10 +823,18 @@ export default function ChatPage() {
                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full mb-2 right-0 glass rounded-2xl px-3 py-2 flex gap-3 shadow-lg"
+                    className="absolute bottom-full mb-2 right-0 glass rounded-2xl px-3 py-2 shadow-lg"
                   >
-                    <button type="button" onClick={handleHug} className="text-2xl hover:scale-125 transition-transform">🤗</button>
-                    <button type="button" onClick={handleKiss} className="text-2xl hover:scale-125 transition-transform">💋</button>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <button type="button" onClick={handleHug} className="text-xl hover:scale-125 transition-transform">🤗</button>
+                      <button type="button" onClick={handleKiss} className="text-xl hover:scale-125 transition-transform">💋</button>
+                      <button type="button" onClick={() => handleReaction('❤️')} className="text-xl hover:scale-125 transition-transform">❤️</button>
+                      <button type="button" onClick={() => handleReaction('😍')} className="text-xl hover:scale-125 transition-transform">😍</button>
+                      <button type="button" onClick={() => handleReaction('🥰')} className="text-xl hover:scale-125 transition-transform">🥰</button>
+                      <button type="button" onClick={() => handleReaction('😘')} className="text-xl hover:scale-125 transition-transform">😘</button>
+                      <button type="button" onClick={() => handleReaction('💕')} className="text-xl hover:scale-125 transition-transform">💕</button>
+                      <button type="button" onClick={() => handleReaction('💖')} className="text-xl hover:scale-125 transition-transform">💖</button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -929,16 +942,16 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Floating emoji animation */}
+        {/* Floating emoji animation — only on receiver's screen */}
         <AnimatePresence>
           {floatingEmojis.map((e) => (
             <motion.div
               key={e.id}
               initial={{ opacity: 1, y: 0, x: `${e.x}vw`, scale: 0.5 }}
-              animate={{ opacity: 0, y: -200, scale: 1.5 }}
+              animate={{ opacity: 0, y: -350, scale: 3 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.8, ease: 'easeOut' }}
-              className="fixed bottom-32 pointer-events-none z-50 text-3xl"
+              transition={{ duration: 2, ease: 'easeOut' }}
+              className="fixed bottom-32 pointer-events-none z-50 text-6xl"
               style={{ left: `${e.x}vw` }}
             >
               {e.emoji}
