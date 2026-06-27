@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import BottomNav from '@/components/BottomNav';
@@ -46,7 +46,9 @@ const cardVariants = {
 };
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [couple, setCoupleData] = useState<CoupleData | null>(null);
   const [startDateInput, setStartDateInput] = useState('');
   const [error, setError] = useState('');
@@ -161,9 +163,43 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex items-center justify-between mb-6"
+          className="flex items-center gap-4 mb-6"
         >
-          <div>
+          <input
+            type="file"
+            accept="image/*"
+            ref={avatarInputRef}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setUploadingAvatar(true);
+              try {
+                const fd = new FormData();
+                fd.append('avatar', file);
+                const { data } = await api.post('/auth/avatar', fd, {
+                  headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                await refresh();
+              } catch {}
+              setUploadingAvatar(false);
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={uploadingAvatar}
+            className="shrink-0"
+          >
+            <div className="w-14 h-14 rounded-full bg-romantic-gradient flex items-center justify-center text-2xl overflow-hidden ring-2 ring-white/10 hover:ring-primary/40 transition-all">
+              {user?.avatar ? (
+                <img src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0).toUpperCase() || '💕'
+              )}
+            </div>
+          </button>
+          <div className="flex-1">
             <p className="text-white/50 text-sm">Welcome back,</p>
             <h1 className="font-display text-2xl gradient-text">
               {user?.nickname || user?.name}{' '}
@@ -180,7 +216,7 @@ export default function DashboardPage() {
             whileTap={{ scale: 0.94 }}
             whileHover={{ scale: 1.03 }}
             onClick={logout}
-            className="text-white/40 text-xs glass px-3 py-2 rounded-xl"
+            className="text-white/40 text-xs glass px-3 py-2 rounded-xl shrink-0"
           >
             Log out
           </motion.button>

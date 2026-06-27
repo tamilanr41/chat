@@ -22,7 +22,7 @@ interface ReplyTo {
 interface Message {
   _id: string;
   text: string;
-  type: 'text' | 'image' | 'audio' | 'sticker';
+  type: 'text' | 'image' | 'audio' | 'video' | 'sticker';
   sender: { _id: string; name: string; nickname?: string; avatar?: string };
   createdAt: string;
   read: boolean;
@@ -153,6 +153,13 @@ function MessageBubble({
               className="max-w-[180px] rounded-xl object-contain"
               loading="lazy"
             />
+          ) : msg.type === 'video' ? (
+            <video
+              src={`${API_BASE}${msg.text}`}
+              controls
+              className="max-w-full rounded-xl max-h-72 object-contain"
+              preload="metadata"
+            />
           ) : msg.type === 'audio' ? (
             <audio
               src={`${API_BASE}${msg.text}`}
@@ -243,12 +250,14 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [partnerName, setPartnerName] = useState('');
+  const [partnerAvatar, setPartnerAvatar] = useState('');
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number; driftX: number; travelY: number; scaleTarget: number }[]>([]);
   const [showNavMenu, setShowNavMenu] = useState(false);
   const [showMenuBtn, setShowMenuBtn] = useState(false);
@@ -276,6 +285,7 @@ export default function ChatPage() {
             ? data.couple.user1
             : data.couple.user2;
           setPartnerName(partner?.nickname || partner?.name || '');
+          setPartnerAvatar(partner?.avatar || '');
         }
       } catch {}
     };
@@ -457,6 +467,36 @@ export default function ChatPage() {
     }
   };
 
+  const sendVideo = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      if (replyingTo) {
+        formData.append('replyTo', JSON.stringify({
+          messageId: replyingTo._id,
+          text: '🎬 Video',
+          senderId: replyingTo.sender._id,
+        }));
+      }
+      await api.post('/chat/upload-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setReplyingTo(null);
+    } catch {
+    } finally {
+      setUploading(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    sendVideo(file);
+    setShowAttachMenu(false);
+  };
+
   const cancelImagePreview = () => {
     setPreviewUrl(null);
     setPreviewFile(null);
@@ -576,8 +616,12 @@ export default function ChatPage() {
       <main className="relative min-h-screen flex flex-col">
         {/* Header */}
         <div className="glass sticky top-0 z-20 px-4 py-3 flex items-center gap-3 rounded-b-2xl">
-          <div className="w-10 h-10 rounded-full bg-romantic-gradient flex items-center justify-center text-lg font-bold shrink-0">
-            {partnerOnline ? '💕' : '💔'}
+          <div className="w-10 h-10 rounded-full bg-romantic-gradient flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden">
+            {partnerAvatar ? (
+              <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
+            ) : (
+              partnerOnline ? '💕' : '💔'
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-display text-lg gradient-text truncate">{partnerName || 'Our Chat'}</h1>
@@ -731,6 +775,13 @@ export default function ChatPage() {
               onChange={handleImageSelect}
               className="hidden"
             />
+            <input
+              type="file"
+              accept="video/*"
+              ref={videoInputRef}
+              onChange={handleVideoSelect}
+              className="hidden"
+            />
             <div className="relative shrink-0">
               <button
                 type="button"
@@ -752,6 +803,10 @@ export default function ChatPage() {
                     <button type="button" onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
                       <span className="text-lg">📷</span>
                       <span className="text-[9px] text-white/40">Photo</span>
+                    </button>
+                    <button type="button" onClick={() => { videoInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">📹</span>
+                      <span className="text-[9px] text-white/40">Video</span>
                     </button>
                     <button type="button" onClick={() => { setShowAttachMenu(false); if (!isRecording) startRecording(); else stopRecording(); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
                       <span className="text-lg">{isRecording ? '⏹️' : '🎤'}</span>
