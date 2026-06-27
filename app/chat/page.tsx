@@ -258,6 +258,9 @@ export default function ChatPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [partnerName, setPartnerName] = useState('');
   const [partnerAvatar, setPartnerAvatar] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number; driftX: number; travelY: number; scaleTarget: number }[]>([]);
   const [showNavMenu, setShowNavMenu] = useState(false);
   const [showMenuBtn, setShowMenuBtn] = useState(false);
@@ -274,7 +277,6 @@ export default function ChatPage() {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const stickerInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchPartner = async () => {
@@ -296,9 +298,27 @@ export default function ChatPage() {
     try {
       const { data } = await api.get('/chat/messages');
       setMessages(data.messages);
+      setHasMore(data.messages.length >= 50);
       markAsRead(data.messages);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (loadingMore || !hasMore || messages.length === 0) return;
+    setLoadingMore(true);
+    try {
+      const { data } = await api.get(`/chat/messages?before=${messages[0]._id}&limit=50`);
+      if (data.messages.length === 0) {
+        setHasMore(false);
+      } else {
+        setMessages((prev) => [...data.messages, ...prev]);
+        setHasMore(data.messages.length >= 50);
+      }
+    } catch {
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -638,8 +658,41 @@ export default function ChatPage() {
         {/* Messages */}
         <div
           ref={chatRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            if (el.scrollTop < 80 && hasMore && !loadingMore) {
+              const prevHeight = el.scrollHeight;
+              loadOlderMessages().then(() => {
+                requestAnimationFrame(() => {
+                  el.scrollTop = el.scrollHeight - prevHeight;
+                });
+              });
+            }
+          }}
           className="flex-1 px-3 pt-3 pb-44 overflow-y-auto flex flex-col"
         >
+          {loadingMore && (
+            <div className="flex justify-center py-3">
+              <span className="w-5 h-5 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
+            </div>
+          )}
+          {hasMore && messages.length > 0 && !loadingMore && (
+            <button
+              type="button"
+              onClick={() => {
+                const el = chatRef.current;
+                const prevHeight = el?.scrollHeight || 0;
+                loadOlderMessages().then(() => {
+                  requestAnimationFrame(() => {
+                    if (el) el.scrollTop = el.scrollHeight - prevHeight;
+                  });
+                });
+              }}
+              className="text-xs text-white/40 hover:text-white/60 py-2 text-center"
+            >
+              Load older messages
+            </button>
+          )}
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <span className="w-6 h-6 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
