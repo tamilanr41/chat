@@ -23,6 +23,16 @@ function formatDuration(seconds: number) {
   return `${m}:${s}`;
 }
 
+function RemoteAudio({ stream }: { stream: MediaStream | null }) {
+  const ref = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (ref.current && stream) {
+      ref.current.srcObject = stream;
+    }
+  }, [stream]);
+  return <audio ref={ref} autoPlay playsInline />;
+}
+
 function VideoStream({ stream, muted, label }: { stream: MediaStream | null; muted?: boolean; label?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
 
@@ -88,6 +98,7 @@ export default function CallScreen({
       ) : (
         /* Audio call - show avatars */
         <div className="flex-1 flex flex-col items-center justify-center gap-6">
+          <RemoteAudio stream={remoteStream} />
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
