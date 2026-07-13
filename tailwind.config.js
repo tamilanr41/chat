@@ -9,17 +9,17 @@ module.exports = {
     extend: {
       colors: {
         bg: {
-          DEFAULT: '#0c0a14',
-          card: '#15121f',
+          DEFAULT: '#000000',
+          card: '#0a0f1a',
         },
         primary: {
-          DEFAULT: '#ff5d8f',
-          light: '#ff8fb1',
-          dark: '#c2386a',
+          DEFAULT: '#3b82f6',
+          light: '#60a5fa',
+          dark: '#2563eb',
         },
         accent: {
-          DEFAULT: '#a78bfa',
-          light: '#c4b5fd',
+          DEFAULT: '#60a5fa',
+          light: '#93c5fd',
         },
       },
       fontFamily: {
@@ -27,11 +27,12 @@ module.exports = {
         display: ['var(--font-display)', 'serif'],
       },
       backgroundImage: {
-        'romantic-gradient': 'linear-gradient(135deg, #ff5d8f 0%, #a78bfa 50%, #6366f1 100%)',
+        'romantic-gradient': 'linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%)',
         'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
       },
       boxShadow: {
-        glow: '0 0 40px rgba(255, 93, 143, 0.35)',
+        glow: '0 0 40px rgba(59, 130, 246, 0.4)',
+        'glow-blue': '0 0 40px rgba(59, 130, 246, 0.35)',
       },
     },
   },

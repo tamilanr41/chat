@@ -34,7 +34,6 @@ function formatDuration(start: Date) {
   return parts.join(' ');
 }
 
-// Animation variants for staggered card entrance
 const cardVariants = {
   hidden: { opacity: 0, y: 24, scale: 0.97 },
   visible: (i: number) => ({
@@ -195,7 +194,7 @@ export default function DashboardPage() {
               {user?.avatar ? (
                 <img src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}`} alt="" className="w-full h-full object-cover" />
               ) : (
-                user?.name?.charAt(0).toUpperCase() || '💕'
+                user?.name?.charAt(0).toUpperCase() || '💙'
               )}
             </div>
           </button>
@@ -208,7 +207,7 @@ export default function DashboardPage() {
                 animate={{ scale: [1, 1.25, 1] }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
               >
-                💕
+                💙
               </motion.span>
             </h1>
           </div>
@@ -250,7 +249,7 @@ export default function DashboardPage() {
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             style={{
               background:
-                'radial-gradient(circle at 50% 0%, rgba(255,93,143,0.5), transparent 60%)',
+                'radial-gradient(circle at 50% 0%, rgba(59,130,246,0.5), transparent 60%)',
             }}
           />
           {couple?.relationshipStartDate ? (
@@ -363,7 +362,7 @@ export default function DashboardPage() {
                     loveDelta > 0 ? 'text-primary-light' : 'text-white/50'
                   }`}
                 >
-                  {loveDelta > 0 ? '+5 💗' : '−5'}
+                  {loveDelta > 0 ? '+5 💙' : '−5'}
                 </motion.span>
               )}
             </AnimatePresence>
@@ -387,7 +386,7 @@ export default function DashboardPage() {
             <input
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Write a note for your love…"
+              placeholder="Write a note for your love..."
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none focus:border-primary/60 transition-colors"
             />
             <motion.button
@@ -417,7 +416,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {notes.length === 0 && (
               <p className="col-span-2 text-center text-white/20 text-xs py-6">
-                No notes yet. Leave one for your partner! 💕
+                No notes yet. Leave one for your partner! 💙
               </p>
             )}
             {notes.map((note) => {
@@ -463,7 +462,7 @@ export default function DashboardPage() {
         >
           <p className="text-white/50 text-xs mb-3">Send a reaction</p>
           <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
-            {['😍', '❤️', '😂', '😘', '🥰', '😮', '🔥', '💔'].map((emoji) => (
+            {['😍', '💙', '😂', '😘', '🥰', '😮', '🔥', '💔'].map((emoji) => (
               <motion.button
                 key={emoji}
                 whileTap={{ scale: 1.4 }}

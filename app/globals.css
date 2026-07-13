@@ -17,15 +17,24 @@ html {
 
 body {
   min-height: 100vh;
-  background-color: #0c0a14;
+  background-color: #000000;
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(255, 93, 143, 0.18), transparent 35%),
-    radial-gradient(circle at 85% 80%, rgba(167, 139, 250, 0.18), transparent 35%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(0, 0, 50, 0.88)),
     url('/bg.png');
-  background-size: cover, cover, cover;
-  background-position: center, center, center;
+  background-size: cover;
+  background-position: center;
   background-attachment: fixed;
-  background-blend-mode: normal, normal, overlay;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.08), transparent 35%),
+    radial-gradient(circle at 85% 80%, rgba(37, 99, 235, 0.08), transparent 35%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 @supports (-webkit-touch-callout: none) {
@@ -44,7 +53,7 @@ body {
 
 /* Romantic gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #ff8fb1, #c4b5fd);
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -55,7 +64,7 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 93, 143, 0.4);
+  background: rgba(59, 130, 246, 0.4);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {

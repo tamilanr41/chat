@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import CallScreen from '@/components/CallScreen';
+import IncomingCallModal from '@/components/IncomingCallModal';
+import useWebRTC from '@/hooks/useWebRTC';
 import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
-import { getSocket } from '@/lib/socket';
+import { getSocket, getSignalSocket } from '@/lib/socket';
 import Link from 'next/link';
 
 interface Reaction {
@@ -22,12 +25,15 @@ interface ReplyTo {
 interface Message {
   _id: string;
   text: string;
-  type: 'text' | 'image' | 'audio' | 'video' | 'sticker';
+  type: 'text' | 'image' | 'audio' | 'video' | 'sticker' | 'scratch' | 'poll' | 'dare' | 'theme';
   sender: { _id: string; name: string; nickname?: string; avatar?: string };
   createdAt: string;
   read: boolean;
   reactions: Reaction[];
   replyTo?: ReplyTo;
+  theme?: string;
+  pollOptions?: { text: string; votes: string[] }[];
+  dareText?: string;
 }
 
 interface StickerItem {
@@ -52,6 +58,123 @@ function formatDateLabel(date: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function ScratchCard({ text }: { text: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [scratching, setScratching] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [revealPct, setRevealPct] = useState(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#3b82f6');
+    grad.addColorStop(0.5, '#8b5cf6');
+    grad.addColorStop(1, '#ec4899');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = '16px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Scratch here ✨', w / 2, h / 2 + 5);
+  }, []);
+
+  const scratch = (x: number, y: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || revealed) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, 18, 0, Math.PI * 2);
+    ctx.fill();
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let transparent = 0;
+    for (let i = 3; i < imgData.data.length; i += 4) {
+      if (imgData.data[i] === 0) transparent++;
+    }
+    const pct = transparent / (imgData.data.length / 4) * 100;
+    setRevealPct(Math.round(pct));
+    if (pct > 50 && !revealed) setRevealed(true);
+  };
+
+  const getPos = (e: React.TouchEvent | React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+
+  return (
+    <div className="relative w-48 h-20 select-none">
+      <div className={`absolute inset-0 flex items-center justify-center text-sm font-medium transition-all duration-500 ${revealed ? 'opacity-100 scale-100' : 'opacity-30 scale-95'}`}>
+        {text}
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={192}
+        height={80}
+        className="absolute inset-0 rounded-xl cursor-pointer"
+        style={{ opacity: revealed ? 0 : 1, transition: 'opacity 0.5s' }}
+        onMouseDown={() => setScratching(true)}
+        onMouseUp={() => setScratching(false)}
+        onMouseLeave={() => setScratching(false)}
+        onMouseMove={(e) => { if (scratching) { const p = getPos(e); scratch(p.x, p.y); } }}
+        onTouchStart={() => setScratching(true)}
+        onTouchEnd={() => setScratching(false)}
+        onTouchMove={(e) => { const p = getPos(e); scratch(p.x, p.y); }}
+      />
+      {revealed && (
+        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-xl">✨</span>
+        </motion.div>
+      )}
+      {!revealed && (
+        <span className="absolute bottom-0 right-1 text-[8px] text-white/30">{revealPct}%</span>
+      )}
+    </div>
+  );
+}
+
+function PollMessage({ options, msgId }: { options: { text: string; votes: string[] }[]; msgId: string }) {
+  const [voted, setVoted] = useState<number | null>(null);
+  const { user } = useAuth();
+  const totalVotes = options.reduce((sum, o) => sum + o.votes.length, 0);
+
+  const handleVote = async (idx: number) => {
+    if (voted !== null) return;
+    setVoted(idx);
+    try { await api.post(`/chat/messages/${msgId}/poll/vote`, { optionIndex: idx }); } catch {}
+  };
+
+  return (
+    <div className="space-y-1.5 min-w-[180px]">
+      <p className="text-[10px] text-white/40 mb-2">📊 Poll</p>
+      {options.map((opt, i) => {
+        const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
+        const isSelected = voted === i;
+        return (
+          <button key={i} onClick={() => handleVote(i)} className="w-full text-left relative rounded-xl overflow-hidden transition-all" disabled={voted !== null}>
+            {voted !== null && (
+              <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="absolute inset-0 bg-primary/20 rounded-xl" />
+            )}
+            <div className={`relative px-3 py-2 text-xs flex items-center justify-between ${isSelected ? 'text-primary-light font-medium' : 'text-white/70'}`}>
+              <span>{opt.text}</span>
+              {voted !== null && <span className="text-[10px] text-white/40">{opt.votes.length + (isSelected ? 1 : 0)} ({pct}%)</span>}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function MessageBubble({
   msg,
   isMine,
@@ -60,6 +183,7 @@ function MessageBubble({
   onReact,
   onDelete,
   onImageOpen,
+  onSwipeReply,
 }: {
   msg: Message;
   isMine: boolean;
@@ -68,25 +192,59 @@ function MessageBubble({
   onReact: (id: string, emoji: string) => void;
   onDelete: (id: string) => void;
   onImageOpen: (url: string) => void;
+  onSwipeReply: (m: Message) => void;
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [swipeX, setSwipeX] = useState(0);
+  const [showSwipeReply, setShowSwipeReply] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTap = useRef(0);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
-  const handleTouchStart = () => {
+  const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '🙏', '🔥', '💙', '😍'];
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
     longPressTimer.current = setTimeout(() => {
-      setShowActions(true);
+      setShowEmojiPicker(true);
     }, 500);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
+    if (dy < 30 && dx < -30) {
+      setSwipeX(Math.max(dx, -120));
+      setShowSwipeReply(true);
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    }
   };
 
   const handleTouchEnd = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    if (swipeX < -80) {
+      onSwipeReply(msg);
+    }
+    setSwipeX(0);
+    setShowSwipeReply(false);
     const now = Date.now();
     if (now - lastTap.current < 300) {
       onReact(msg._id, '❤️');
     }
     lastTap.current = now;
+  };
+
+  const handleMouseDown = () => {
+    longPressTimer.current = setTimeout(() => {
+      setShowEmojiPicker(true);
+    }, 500);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
   const reactionSummary = msg.reactions?.reduce<Record<string, string[]>>((acc, r) => {
@@ -104,31 +262,38 @@ function MessageBubble({
     >
       <div
         className={`group relative max-w-[80%] ${isMine ? 'items-end' : 'items-start'}`}
+        style={{ transform: `translateX(${swipeX}px)`, transition: swipeX === 0 ? 'transform 0.2s ease' : 'none' }}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onMouseDown={() => {
-          longPressTimer.current = setTimeout(() => setShowActions(true), 500);
-        }}
-        onMouseUp={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onMouseLeave={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
       >
-        {/* Reply preview */}
+        {/* Swipe reply indicator */}
+        {showSwipeReply && swipeX < -30 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute top-1/2 -translate-y-1/2 -left-8 text-white/40 text-lg">
+            ↩️
+          </motion.div>
+        )}
+
+        {/* Reply preview - WhatsApp style */}
         {msg.replyTo && (
           <div
-            className={`text-xs px-3 pt-2 pb-1 rounded-t-xl ${
-              isMine ? 'bg-white/10' : 'bg-white/5'
+            className={`text-xs px-3 pt-2 pb-1.5 rounded-t-xl border-l-2 ${
+              isMine ? 'bg-white/10 border-white/30' : 'bg-white/5 border-primary/40'
             }`}
           >
-            <span className="text-primary-light font-medium">
+            <span className="text-primary-light font-medium text-[11px]">
               {msg.replyTo.sender?.name || 'Unknown'}
             </span>
-                    <p className="text-white/40 truncate max-w-[120px] sm:max-w-[200px]">{msg.replyTo.text}</p>
+            <p className="text-white/40 truncate max-w-[120px] sm:max-w-[200px] text-[11px] leading-snug">{msg.replyTo.text}</p>
           </div>
         )}
 
         {/* Bubble */}
         <div
-          className={`px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
+          className={`px-4 py-2.5 text-sm leading-relaxed ${
             msg.replyTo
               ? 'rounded-b-2xl rounded-tr-2xl'
               : 'rounded-2xl'
@@ -167,74 +332,102 @@ function MessageBubble({
               className="max-w-full h-10"
               preload="metadata"
             />
+          ) : msg.type === 'scratch' ? (
+            <ScratchCard text={msg.text} />
+          ) : msg.type === 'poll' ? (
+            <PollMessage options={msg.pollOptions || []} msgId={msg._id} />
+          ) : msg.type === 'dare' ? (
+            <div className="text-center py-2">
+              <p className="text-xs text-white/50 mb-1">🎡 Truth or Dare</p>
+              <p className="text-sm font-medium">{msg.dareText || msg.text}</p>
+            </div>
+          ) : msg.type === 'theme' ? (
+            <p className={`whitespace-pre-wrap break-words ${msg.theme || ''}`}>{msg.text}</p>
           ) : (
             <p className="whitespace-pre-wrap break-words">{msg.text}</p>
           )}
 
-          {/* Time + read receipt */}
-          <div className={`flex items-center gap-1 mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
-            <span className={`text-[10px] ${isMine ? 'text-white/60' : 'text-white/40'}`}>
+          {/* Time + read receipt - WhatsApp style */}
+          <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+            <span className={`text-[10px] ${isMine ? 'text-white/50' : 'text-white/30'}`}>
               {formatTime(msg.createdAt)}
             </span>
             {isMine && (
-              <span className="text-[10px]">
-                {msg.read ? '✓✓' : '✓'}
+              <span className={`text-[10px] ${msg.read ? 'text-blue-400' : 'text-white/30'}`}>
+                {msg.read ? (
+                  <svg width="16" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 4L4.5 7.5L11 1M5 4L8.5 7.5L15 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ) : (
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 4L4.5 7.5L9 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
               </span>
             )}
           </div>
         </div>
 
-        {/* Reactions */}
+        {/* Reactions - Instagram style (below bubble) */}
         {reactionSummary && Object.keys(reactionSummary).length > 0 && (
           <div
-            className={`flex gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}
+            className={`flex gap-0.5 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}
           >
-            {Object.entries(reactionSummary).map(([emoji, users]) => (
-              <button
-                key={emoji}
-                onClick={() => onReact(msg._id, emoji)}
-                className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  users.includes('self') ? 'bg-primary/20' : 'bg-white/10'
-                }`}
-              >
-                {emoji}
-              </button>
-            ))}
+            <div className="flex items-center gap-0.5 bg-white/5 backdrop-blur-sm rounded-full px-1.5 py-0.5 border border-white/5">
+              {Object.entries(reactionSummary).map(([emoji, users]) => (
+                <button
+                  key={emoji}
+                  onClick={() => onReact(msg._id, emoji)}
+                  className={`text-xs hover:scale-125 transition-transform ${users.includes('self') ? '' : 'opacity-60'}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+              {Object.keys(reactionSummary).length > 0 && (
+                <span className="text-[9px] text-white/30 ml-0.5">{Object.values(reactionSummary).reduce((s, u) => s + u.length, 0)}</span>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Action popover */}
+        {/* Instagram-style quick reaction popup */}
         <AnimatePresence>
-          {showActions && (
+          {showEmojiPicker && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className={`absolute -top-12 ${isMine ? 'right-0' : 'left-0'} flex gap-1 bg-bg-card border border-white/10 rounded-full px-2 py-1.5 shadow-lg z-10`}
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 10 }}
+              className={`absolute -top-14 ${isMine ? 'right-0' : 'left-0'} flex gap-1 bg-bg-card/95 backdrop-blur-md border border-white/10 rounded-full px-2 py-1.5 shadow-xl z-20`}
             >
-              <button
-                onClick={() => { onReact(msg._id, '❤️'); setShowActions(false); }}
-                className="hover:scale-125 transition-transform text-sm"
-              >
-                ❤️
-              </button>
-              <button
-                onClick={() => { onReply(msg); setShowActions(false); }}
-                className="hover:scale-125 transition-transform text-sm"
-              >
-                💬
-              </button>
-              {isMine && (
-                <button
-                  onClick={() => { onDelete(msg._id); setShowActions(false); }}
-                  className="hover:scale-125 transition-transform text-sm"
+              {QUICK_REACTIONS.map((emoji) => (
+                <motion.button
+                  key={emoji}
+                  whileTap={{ scale: 1.4 }}
+                  whileHover={{ scale: 1.3 }}
+                  onClick={() => { onReact(msg._id, emoji); setShowEmojiPicker(false); }}
+                  className="text-lg hover:scale-125 transition-transform"
                 >
-                  🗑️
-                </button>
-              )}
+                  {emoji}
+                </motion.button>
+              ))}
+              <button
+                onClick={() => { setShowEmojiPicker(false); onReply(msg); }}
+                className="text-white/40 hover:text-white/70 text-xs px-1 flex items-center"
+              >
+                ↩️
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Hover actions - desktop */}
+        <div className={`absolute -top-8 ${isMine ? 'right-0' : 'left-0'} hidden group-hover:flex gap-1 bg-bg-card/95 backdrop-blur-md border border-white/10 rounded-full px-1.5 py-1 shadow-xl z-10`}>
+          <button onClick={() => onReact(msg._id, '❤️')} className="hover:scale-125 transition-transform text-sm">❤️</button>
+          <button onClick={() => onReply(msg)} className="hover:scale-125 transition-transform text-sm">↩️</button>
+          {isMine && (
+            <button onClick={() => onDelete(msg._id)} className="hover:scale-125 transition-transform text-sm">🗑️</button>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -277,6 +470,109 @@ export default function ChatPage() {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const stickerInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [lastSeen, setLastSeen] = useState<string | null>(null);
+
+  // Creative features state
+  const [showScratchModal, setShowScratchModal] = useState(false);
+  const [scratchText, setScratchText] = useState('');
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState('');
+
+  // Call state
+  const [incomingCall, setIncomingCall] = useState<{ from: string; callType: 'audio' | 'video' } | null>(null);
+  const [activeCall, setActiveCall] = useState(false);
+
+  const handleCallEnd = useCallback(() => {
+    setActiveCall(false);
+  }, []);
+
+  const webrtc = useWebRTC({ onCallEnd: handleCallEnd });
+
+  const initiateCall = async (type: 'audio' | 'video') => {
+    console.log('[Call] initiateCall called:', type);
+    console.log('[Call] user:', user?.id);
+    if (!user?.id) return;
+    try {
+      const { data } = await api.get('/couple');
+      console.log('[Call] couple data:', data);
+      if (data.couple) {
+        const partner = data.couple.user1?._id !== user.id
+          ? data.couple.user1
+          : data.couple.user2;
+        console.log('[Call] partner:', partner?._id, partner?.name);
+        if (partner?._id) {
+          const socket = getSignalSocket();
+          console.log('[Call] signal socket connected:', socket?.connected);
+          socket?.emit('register', user.id);
+          socket?.emit('call:ring', { to: partner._id, callType: type, from: user.id });
+          console.log('[Call] emitted call:ring to', partner._id);
+          webrtc.setCallState('calling');
+          await webrtc.startCall(partner._id, type);
+          setActiveCall(true);
+        }
+      }
+    } catch (e) {
+      console.log('[Call] error:', e);
+    }
+  };
+
+  const acceptIncomingCall = async () => {
+    if (!incomingCall) return;
+    const socket = getSignalSocket();
+    socket?.emit('register', user?.id);
+    await webrtc.acceptCall(incomingCall.from, incomingCall.callType);
+    setActiveCall(true);
+    setIncomingCall(null);
+  };
+
+  const rejectIncomingCall = () => {
+    const socket = getSignalSocket();
+    if (incomingCall) {
+      socket?.emit('call:reject', { to: incomingCall.from });
+    }
+    setIncomingCall(null);
+  };
+
+  useEffect(() => {
+    const socket = getSignalSocket();
+    if (!socket) return;
+
+    if (user?.id) {
+      socket.emit('register', user.id);
+    }
+
+    socket.on('call:ring', ({ from, callType: type }: { from: string; callType: 'audio' | 'video' }) => {
+      if (!activeCall && webrtc.callState === 'idle') {
+        setIncomingCall({ from, callType: type });
+      }
+    });
+
+    socket.on('call:accept', ({ from }: { from: string }) => {
+      // Partner accepted, webrtc will handle offer/answer
+    });
+
+    socket.on('call:reject', () => {
+      webrtc.cleanup();
+      setActiveCall(false);
+    });
+
+    socket.on('call:end', () => {
+      webrtc.cleanup();
+      setActiveCall(false);
+      setIncomingCall(null);
+    });
+
+    return () => {
+      socket.off('call:ring');
+      socket.off('call:accept');
+      socket.off('call:reject');
+      socket.off('call:end');
+    };
+  }, [activeCall, webrtc]);
 
   useEffect(() => {
     const fetchPartner = async () => {
@@ -366,7 +662,9 @@ export default function ChatPage() {
     socket.on('typing:stop', () => setPartnerTyping(false));
 
     socket.on('presence:update', ({ online }: { online: string[] }) => {
-      setPartnerOnline(online.some((id) => id !== user?.id));
+      const isOnline = online.some((id) => id !== user?.id);
+      setPartnerOnline(isOnline);
+      if (!isOnline) setLastSeen(new Date().toISOString());
     });
 
     socket.on('receive:emoji', ({ emoji }: { emoji: string }) => {
@@ -620,6 +918,71 @@ export default function ChatPage() {
     if (stickerInputRef.current) stickerInputRef.current.value = '';
   };
 
+  const sendScratchCard = async () => {
+    if (!scratchText.trim()) return;
+    try {
+      await api.post('/chat/messages', { text: scratchText, type: 'scratch' });
+      setShowScratchModal(false);
+      setScratchText('');
+    } catch {}
+  };
+
+  const sendPoll = async () => {
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (validOptions.length < 2) return;
+    try {
+      await api.post('/chat/messages', {
+        text: pollQuestion || 'Vote now!',
+        type: 'poll',
+        pollOptions: validOptions.map((text) => ({ text, votes: [] })),
+      });
+      setShowPollModal(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
+    } catch {}
+  };
+
+  const DARES = [
+    'Send a voice note singing a song 🎤',
+    'Send a selfie right now 📸',
+    'Text "I love you" 5 times 💙',
+    'Send your favorite emoji and explain why 🤔',
+    'Record a 10-second dance video 💃',
+    'Send a screenshot of your home screen 📱',
+    'Tell me what you ate today 🍕',
+    'Send a voice note saying something romantic 🥰',
+    'Text me a joke 😂',
+    'Send a photo of what you\'re wearing 👗',
+    'Tell me your dream vacation 🌴',
+    'Send a voice note whispering "I love you" 🤫',
+  ];
+
+  const sendDare = async () => {
+    const dare = DARES[Math.floor(Math.random() * DARES.length)];
+    try {
+      await api.post('/chat/messages', { text: dare, type: 'dare', dareText: dare });
+    } catch {}
+  };
+
+  const THEMES: { label: string; class: string; preview: string }[] = [
+    { label: 'Galaxy', class: 'bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 bg-clip-text text-transparent', preview: '🌌' },
+    { label: 'Fire', class: 'bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 bg-clip-text text-transparent', preview: '🔥' },
+    { label: 'Ocean', class: 'bg-gradient-to-r from-cyan-400 via-blue-500 to-teal-500 bg-clip-text text-transparent', preview: '🌊' },
+    { label: 'Neon', class: 'text-green-400 font-bold', preview: '💚' },
+    { label: 'Gold', class: 'bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 bg-clip-text text-transparent', preview: '✨' },
+  ];
+
+  const sendThemedMessage = async (theme: string) => {
+    if (!text.trim()) return;
+    const value = text;
+    setText('');
+    try {
+      await api.post('/chat/messages', { text: value, type: 'theme', theme });
+      setShowThemePicker(false);
+      setSelectedTheme('');
+    } catch { setText(value); }
+  };
+
   const grouped: { date: string; items: Message[] }[] = [];
   messages.forEach((msg) => {
     const label = formatDateLabel(msg.createdAt);
@@ -636,11 +999,16 @@ export default function ChatPage() {
       <main className="relative min-h-screen flex flex-col">
         {/* Header */}
         <div className="glass sticky top-0 z-20 px-4 py-3 flex items-center gap-3 rounded-b-2xl">
-          <div className="w-10 h-10 rounded-full bg-romantic-gradient flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden">
-            {partnerAvatar ? (
-              <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
-            ) : (
-              partnerOnline ? '💕' : '💔'
+          <div className="relative shrink-0">
+            <div className="w-10 h-10 rounded-full bg-romantic-gradient flex items-center justify-center text-lg font-bold overflow-hidden">
+              {partnerAvatar ? (
+                <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                partnerOnline ? '💕' : '💔'
+              )}
+            </div>
+            {partnerOnline && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
             )}
           </div>
           <div className="flex-1 min-w-0">
@@ -650,8 +1018,35 @@ export default function ChatPage() {
                   ? 'typing...'
                   : partnerOnline
                     ? 'Online'
-                    : 'Offline'}
+                    : lastSeen
+                      ? `Last seen ${formatTime(lastSeen)}`
+                      : 'Offline'}
               </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => initiateCall('audio')}
+              disabled={activeCall}
+              className="p-2 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30"
+              title="Voice Call"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/70">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => initiateCall('video')}
+              disabled={activeCall}
+              className="p-2 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30"
+              title="Video Call"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/70">
+                <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
+                <rect x="2" y="6" width="14" height="12" rx="2" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -660,6 +1055,8 @@ export default function ChatPage() {
           ref={chatRef}
           onScroll={(e) => {
             const el = e.currentTarget;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            setShowScrollBtn(!atBottom);
             if (el.scrollTop < 80 && hasMore && !loadingMore) {
               const prevHeight = el.scrollHeight;
               loadOlderMessages().then(() => {
@@ -727,6 +1124,7 @@ export default function ChatPage() {
                       onReact={handleReact}
                       onDelete={handleDelete}
                       onImageOpen={setFullscreenImage}
+                      onSwipeReply={setReplyingTo}
                     />
                   );
                 })}
@@ -753,6 +1151,26 @@ export default function ChatPage() {
 
           <div ref={bottomRef} />
         </div>
+
+        {/* Scroll to bottom FAB */}
+        <AnimatePresence>
+          {showScrollBtn && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              onClick={() => {
+                bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+                setShowScrollBtn(false);
+              }}
+              className="fixed bottom-36 right-4 z-20 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg hover:bg-white/20 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-white/70">
+                <path d="M12 5v14M5 12l7 7 7-7" />
+              </svg>
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* Reply preview bar */}
         <AnimatePresence>
@@ -868,6 +1286,22 @@ export default function ChatPage() {
                     <button type="button" onClick={() => { setShowStickerPicker(!showStickerPicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
                       <span className="text-lg">🎨</span>
                       <span className="text-[9px] text-white/40">Sticker</span>
+                    </button>
+                    <button type="button" onClick={() => { setShowScratchModal(true); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">🎰</span>
+                      <span className="text-[9px] text-white/40">Scratch</span>
+                    </button>
+                    <button type="button" onClick={() => { setShowPollModal(true); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">📊</span>
+                      <span className="text-[9px] text-white/40">Poll</span>
+                    </button>
+                    <button type="button" onClick={() => { sendDare(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">🎡</span>
+                      <span className="text-[9px] text-white/40">Dare</span>
+                    </button>
+                    <button type="button" onClick={() => { setShowThemePicker(!showThemePicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                      <span className="text-lg">🌈</span>
+                      <span className="text-[9px] text-white/40">Theme</span>
                     </button>
                   </motion.div>
                 )}
@@ -1129,6 +1563,97 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Scratch Card Modal */}
+      <AnimatePresence>
+        {showScratchModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-6" onClick={() => setShowScratchModal(false)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass rounded-3xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-display gradient-text text-center mb-4">🎰 Scratch Card</h3>
+              <p className="text-xs text-white/40 text-center mb-3">Partner has to scratch to reveal your message!</p>
+              <textarea value={scratchText} onChange={(e) => setScratchText(e.target.value)} placeholder="Type your hidden message..." rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/60 resize-none mb-4" />
+              <div className="flex gap-2">
+                <button onClick={() => setShowScratchModal(false)} className="flex-1 py-2 rounded-xl glass text-sm">Cancel</button>
+                <button onClick={sendScratchCard} disabled={!scratchText.trim()} className="flex-1 py-2 rounded-xl bg-romantic-gradient text-sm font-medium disabled:opacity-30">Send 🎰</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Poll Modal */}
+      <AnimatePresence>
+        {showPollModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-6" onClick={() => setShowPollModal(false)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass rounded-3xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-display gradient-text text-center mb-4">📊 Create Poll</h3>
+              <input value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="Question (optional)..." className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/60 mb-3" />
+              {pollOptions.map((opt, i) => (
+                <input key={i} value={opt} onChange={(e) => { const newOpts = [...pollOptions]; newOpts[i] = e.target.value; setPollOptions(newOpts); }} placeholder={`Option ${i + 1}...`} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/60 mb-2" />
+              ))}
+              {pollOptions.length < 4 && (
+                <button onClick={() => setPollOptions([...pollOptions, ''])} className="w-full py-1.5 rounded-xl border border-dashed border-white/10 text-xs text-white/30 mb-3">+ Add option</button>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => setShowPollModal(false)} className="flex-1 py-2 rounded-xl glass text-sm">Cancel</button>
+                <button onClick={sendPoll} disabled={pollOptions.filter((o) => o.trim()).length < 2} className="flex-1 py-2 rounded-xl bg-romantic-gradient text-sm font-medium disabled:opacity-30">Send 📊</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Theme Picker */}
+      <AnimatePresence>
+        {showThemePicker && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="fixed bottom-[140px] left-0 right-0 z-30 px-4">
+            <div className="glass rounded-2xl p-3 max-w-md mx-auto">
+              <p className="text-[10px] text-white/40 text-center mb-2">Type a message then pick a theme</p>
+              <div className="flex gap-2 justify-center">
+                {THEMES.map((t) => (
+                  <button key={t.label} onClick={() => sendThemedMessage(t.class)} className="flex flex-col items-center gap-1 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                    <span className="text-xl">{t.preview}</span>
+                    <span className="text-[8px] text-white/40">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setShowThemePicker(false)} className="w-full text-[10px] text-white/30 mt-2">cancel</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Incoming Call Modal */}
+      <AnimatePresence>
+        {incomingCall && (
+          <IncomingCallModal
+            callerName={partnerName}
+            callerAvatar={partnerAvatar}
+            callType={incomingCall.callType}
+            onAccept={acceptIncomingCall}
+            onReject={rejectIncomingCall}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Active Call Screen */}
+      <AnimatePresence>
+        {activeCall && (
+          <CallScreen
+            localStream={webrtc.localStream}
+            remoteStream={webrtc.remoteStream}
+            callType={webrtc.callType}
+            callDuration={webrtc.callDuration}
+            isMuted={webrtc.isMuted}
+            isVideoOff={webrtc.isVideoOff}
+            partnerName={partnerName}
+            partnerAvatar={partnerAvatar}
+            onToggleMute={webrtc.toggleMute}
+            onToggleVideo={webrtc.toggleVideo}
+            onEndCall={webrtc.endCall}
+          />
+        )}
+      </AnimatePresence>
     </ProtectedRoute>
   );
 }

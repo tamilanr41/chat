@@ -24,10 +24,10 @@ export default function SplashPage() {
           💞
         </motion.div>
 
-        <h1 className="font-display text-4xl sm:text-5xl mb-3 gradient-text">
+        <h1 className="font-display text-4xl sm:text-5xl mb-3 gradient-text drop-shadow-lg">
           Just For Two
         </h1>
-        <p className="text-white/60 max-w-sm mb-10">
+        <p className="text-white/80 max-w-sm mb-10 drop-shadow-md">
           A private, invite-only space made for the two of you — chats, memories,
           and little rituals that are yours alone.
         </p>
