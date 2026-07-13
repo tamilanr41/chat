@@ -192,7 +192,7 @@ export default function DashboardPage() {
           >
             <div className="w-14 h-14 rounded-full bg-romantic-gradient flex items-center justify-center text-2xl overflow-hidden ring-2 ring-white/10 hover:ring-primary/40 transition-all">
               {user?.avatar ? (
-                <img src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                <img src={`https://chat-back-ac0h.onrender.com${user.avatar}`} alt="" className="w-full h-full object-cover" />
               ) : (
                 user?.name?.charAt(0).toUpperCase() || '💙'
               )}

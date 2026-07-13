@@ -7,7 +7,7 @@ import BottomNav from '@/components/BottomNav';
 import FloatingParticles from '@/components/FloatingParticles';
 import api from '@/lib/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = 'https://chat-back-ac0h.onrender.com';
 
 interface Memory {
   _id: string;

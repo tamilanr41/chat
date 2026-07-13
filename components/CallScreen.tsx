@@ -63,7 +63,7 @@ export default function CallScreen({
   onToggleVideo,
   onEndCall,
 }: CallScreenProps) {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
+  const API_BASE = 'https://chat-back-ac0h.onrender.com';
 
   return (
     <motion.div

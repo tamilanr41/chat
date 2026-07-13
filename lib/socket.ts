@@ -10,7 +10,7 @@ export function getSocket(): Socket | null {
   if (!token) return null;
 
   if (!socket) {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000', {
+    socket = io('https://chat-back-ac0h.onrender.com', {
       auth: { token },
       autoConnect: true,
     });
@@ -23,7 +23,7 @@ export function getSignalSocket(): Socket | null {
   if (typeof window === 'undefined') return null;
 
   if (!signalSocket) {
-    signalSocket = io(process.env.NEXT_PUBLIC_SIGNAL_URL || 'http://localhost:3001', {
+    signalSocket = io('https://chat-back-ac0h.onrender.com', {
       autoConnect: true,
     });
   }

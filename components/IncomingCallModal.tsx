@@ -18,7 +18,7 @@ export default function IncomingCallModal({
   onAccept,
   onReject,
 }: IncomingCallModalProps) {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
+  const API_BASE = 'https://chat-back-ac0h.onrender.com';
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [ringCount, setRingCount] = useState(0);
 

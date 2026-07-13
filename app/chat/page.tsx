@@ -41,7 +41,7 @@ interface StickerItem {
   imageUrl: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = 'https://chat-back-ac0h.onrender.com';
 
 function formatTime(date: string) {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
