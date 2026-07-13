@@ -38,8 +38,8 @@ export default function FloatingParticles() {
             left: p.left,
             top: p.top,
             background: p.isAccent
-              ? 'rgba(244, 114, 182, 0.4)'
-              : 'rgba(236, 72, 153, 0.4)',
+              ? 'rgba(167, 139, 250, 0.4)'
+              : 'rgba(255, 93, 143, 0.4)',
             animationDelay: p.delay,
             filter: 'blur(1px)',
           }}

@@ -13,13 +13,13 @@ module.exports = {
           card: '#0a0f1a',
         },
         primary: {
-          DEFAULT: '#ec4899',
-          light: '#f472b6',
-          dark: '#db2777',
+          DEFAULT: '#ff5d8f',
+          light: '#ff8fb1',
+          dark: '#c2386a',
         },
         accent: {
-          DEFAULT: '#f472b6',
-          light: '#f9a8d4',
+          DEFAULT: '#a78bfa',
+          light: '#c4b5fd',
         },
       },
       fontFamily: {
@@ -27,12 +27,11 @@ module.exports = {
         display: ['var(--font-display)', 'serif'],
       },
       backgroundImage: {
-        'romantic-gradient': 'linear-gradient(135deg, #db2777 0%, #ec4899 50%, #f472b6 100%)',
+        'romantic-gradient': 'linear-gradient(135deg, #ff5d8f 0%, #a78bfa 50%, #6366f1 100%)',
         'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
       },
       boxShadow: {
-        glow: '0 0 40px rgba(236, 72, 153, 0.4)',
-        'glow-pink': '0 0 40px rgba(236, 72, 153, 0.35)',
+        glow: '0 0 40px rgba(255, 93, 143, 0.35)',
       },
     },
   },
