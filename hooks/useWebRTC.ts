@@ -104,7 +104,6 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
       if (event.candidate) {
         const socket = getSocket();
         socket?.emit('call:ice-candidate', {
-          to: targetUserIdRef.current,
           candidate: event.candidate.toJSON(),
         });
       }
@@ -144,7 +143,6 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
       const socket = getSocket();
       console.log('[WebRTC] main socket:', socket?.connected);
       socket?.emit('call:offer', {
-        to: targetUserId,
         offer: pc.localDescription?.toJSON(),
         callType: type,
       });
@@ -162,7 +160,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
     await getLocalStream(type === 'video');
 
     const socket = getSocket();
-    socket?.emit('call:accept', { to: fromUserId });
+    socket?.emit('call:accept', {});
   }, [getLocalStream]);
 
   const handleOffer = useCallback(async (fromUserId: string, offer: RTCSessionDescriptionInit, type: CallType) => {
@@ -179,7 +177,6 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
 
     const socket = getSocket();
     socket?.emit('call:answer', {
-      to: fromUserId,
       answer: pc.localDescription?.toJSON(),
     });
   }, [getLocalStream, createPeerConnection]);
@@ -200,9 +197,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
 
   const endCall = useCallback(() => {
     const socket = getSocket();
-    if (targetUserIdRef.current) {
-      socket?.emit('call:end', { to: targetUserIdRef.current });
-    }
+    socket?.emit('call:end', {});
     cleanup();
     onCallEnd?.();
   }, [cleanup, onCallEnd]);

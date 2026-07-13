@@ -507,7 +507,7 @@ export default function ChatPage() {
         if (partner?._id) {
           const socket = getSocket();
           console.log('[Call] main socket connected:', socket?.connected);
-          socket?.emit('call:ring', { to: partner._id, callType: type });
+          socket?.emit('call:ring', { callType: type });
           console.log('[Call] emitted call:ring to', partner._id);
           webrtc.setCallState('calling');
           await webrtc.startCall(partner._id, type);
@@ -530,7 +530,7 @@ export default function ChatPage() {
   const rejectIncomingCall = () => {
     const socket = getSocket();
     if (incomingCall) {
-      socket?.emit('call:reject', { to: incomingCall.from });
+      socket?.emit('call:reject', {});
     }
     setIncomingCall(null);
   };
