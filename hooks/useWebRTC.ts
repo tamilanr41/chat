@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { getSignalSocket } from '@/lib/socket';
+import { getSocket } from '@/lib/socket';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -102,7 +102,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        const socket = getSignalSocket();
+        const socket = getSocket();
         socket?.emit('call:ice-candidate', {
           to: targetUserIdRef.current,
           candidate: event.candidate.toJSON(),
@@ -141,8 +141,8 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
       await pc.setLocalDescription(offer);
       console.log('[WebRTC] created offer');
 
-      const socket = getSignalSocket();
-      console.log('[WebRTC] signal socket:', socket?.connected);
+      const socket = getSocket();
+      console.log('[WebRTC] main socket:', socket?.connected);
       socket?.emit('call:offer', {
         to: targetUserId,
         offer: pc.localDescription?.toJSON(),
@@ -161,7 +161,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
 
     await getLocalStream(type === 'video');
 
-    const socket = getSignalSocket();
+    const socket = getSocket();
     socket?.emit('call:accept', { to: fromUserId });
   }, [getLocalStream]);
 
@@ -177,7 +177,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
-    const socket = getSignalSocket();
+    const socket = getSocket();
     socket?.emit('call:answer', {
       to: fromUserId,
       answer: pc.localDescription?.toJSON(),
@@ -199,7 +199,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
   }, []);
 
   const endCall = useCallback(() => {
-    const socket = getSignalSocket();
+    const socket = getSocket();
     if (targetUserIdRef.current) {
       socket?.emit('call:end', { to: targetUserIdRef.current });
     }
@@ -228,7 +228,7 @@ export default function useWebRTC({ onRemoteStream, onCallEnd }: UseWebRTCOption
   }, []);
 
   useEffect(() => {
-    const socket = getSignalSocket();
+    const socket = getSocket();
     if (!socket) return;
 
     socket.on('call:offer', ({ from, offer, callType: type }: { from: string; offer: RTCSessionDescriptionInit; callType: CallType }) => {

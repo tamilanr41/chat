@@ -8,7 +8,7 @@ import IncomingCallModal from '@/components/IncomingCallModal';
 import useWebRTC from '@/hooks/useWebRTC';
 import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
-import { getSocket, getSignalSocket } from '@/lib/socket';
+import { getSocket } from '@/lib/socket';
 import Link from 'next/link';
 
 interface Reaction {
@@ -505,10 +505,9 @@ export default function ChatPage() {
           : data.couple.user2;
         console.log('[Call] partner:', partner?._id, partner?.name);
         if (partner?._id) {
-          const socket = getSignalSocket();
-          console.log('[Call] signal socket connected:', socket?.connected);
-          socket?.emit('register', user.id);
-          socket?.emit('call:ring', { to: partner._id, callType: type, from: user.id });
+          const socket = getSocket();
+          console.log('[Call] main socket connected:', socket?.connected);
+          socket?.emit('call:ring', { to: partner._id, callType: type });
           console.log('[Call] emitted call:ring to', partner._id);
           webrtc.setCallState('calling');
           await webrtc.startCall(partner._id, type);
@@ -522,15 +521,14 @@ export default function ChatPage() {
 
   const acceptIncomingCall = async () => {
     if (!incomingCall) return;
-    const socket = getSignalSocket();
-    socket?.emit('register', user?.id);
+    const socket = getSocket();
     await webrtc.acceptCall(incomingCall.from, incomingCall.callType);
     setActiveCall(true);
     setIncomingCall(null);
   };
 
   const rejectIncomingCall = () => {
-    const socket = getSignalSocket();
+    const socket = getSocket();
     if (incomingCall) {
       socket?.emit('call:reject', { to: incomingCall.from });
     }
@@ -538,7 +536,7 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    const socket = getSignalSocket();
+    const socket = getSocket();
     if (!socket) return;
 
     if (user?.id) {

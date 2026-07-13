@@ -40,6 +40,7 @@ function VideoStream({ stream, muted, label }: { stream: MediaStream | null; mut
         playsInline
         muted={muted}
         className="w-full h-full object-cover"
+        style={muted ? { transform: 'scaleX(-1)' } : undefined}
       />
       {label && (
         <span className="absolute bottom-4 left-4 text-xs text-white/60 bg-black/30 px-2 py-1 rounded-lg backdrop-blur-sm">
