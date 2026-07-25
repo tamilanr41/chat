@@ -10,6 +10,8 @@ import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 import { registerPush } from '@/lib/push';
+
+const PUSH_ENABLED = false;
 import Link from 'next/link';
 import EmojiPicker from '@/components/EmojiPicker';
 import GifPicker from '@/components/GifPicker';
@@ -487,7 +489,7 @@ export default function ChatPage() {
   }, [user?.id]);
 
   useEffect(() => {
-    registerPush().catch(() => {});
+    if (PUSH_ENABLED) registerPush().catch(() => {});
   }, []);
 
   useEffect(() => {
