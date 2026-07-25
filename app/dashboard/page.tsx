@@ -190,11 +190,14 @@ export default function DashboardPage() {
             disabled={uploadingAvatar}
             className="shrink-0"
           >
-            <div className="w-14 h-14 rounded-full bg-romantic-gradient flex items-center justify-center text-2xl overflow-hidden ring-2 ring-white/10 hover:ring-primary/40 transition-all">
+            <div className="w-14 h-14 rounded-full bg-romantic-gradient flex items-center justify-center text-2xl overflow-hidden ring-2 ring-white/10 hover:ring-primary/40 transition-all relative">
               {user?.avatar ? (
-                <img src={`https://chat-back-ac0h.onrender.com${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                <>
+                  <img src={`https://chat-back-ac0h.onrender.com${user.avatar}`} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                  <span className="hidden absolute inset-0 flex items-center justify-center">💞</span>
+                </>
               ) : (
-                user?.name?.charAt(0).toUpperCase() || '💞'
+                '💞'
               )}
             </div>
           </button>

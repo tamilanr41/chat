@@ -103,10 +103,13 @@ export default function CallScreen({
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-romantic-gradient flex items-center justify-center text-6xl shadow-glow overflow-hidden"
+            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-romantic-gradient flex items-center justify-center text-6xl shadow-glow overflow-hidden relative"
           >
             {partnerAvatar ? (
-              <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
+              <>
+                <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                <span className="hidden absolute inset-0 flex items-center justify-center">💞</span>
+              </>
             ) : (
               '💞'
             )}

@@ -819,9 +819,12 @@ export default function ChatPage() {
             {/* Avatar with animated ring */}
             <div className="relative shrink-0">
               <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-br from-primary via-accent to-primary">
-                <div className="w-full h-full rounded-full overflow-hidden bg-bg">
+                <div className="w-full h-full rounded-full overflow-hidden bg-bg relative">
                   {partnerAvatar ? (
-                    <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
+                    <>
+                      <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                      <div className="w-full h-full flex items-center justify-center text-base hidden absolute inset-0">💞</div>
+                    </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-base">
                       💞

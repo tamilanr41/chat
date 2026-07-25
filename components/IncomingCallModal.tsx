@@ -87,10 +87,13 @@ export default function IncomingCallModal({
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-romantic-gradient flex items-center justify-center text-6xl shadow-glow overflow-hidden"
+            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-romantic-gradient flex items-center justify-center text-6xl shadow-glow overflow-hidden relative"
           >
             {callerAvatar ? (
-              <img src={`${API_BASE}${callerAvatar}`} alt="" className="w-full h-full object-cover" />
+              <>
+                <img src={`${API_BASE}${callerAvatar}`} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                <span className="hidden absolute inset-0 flex items-center justify-center">💞</span>
+              </>
             ) : (
               '💞'
             )}
