@@ -10,6 +10,11 @@ import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 import Link from 'next/link';
+import EmojiPicker from '@/components/EmojiPicker';
+import GifPicker from '@/components/GifPicker';
+import MessageContextMenu, { type ContextMenuItem } from '@/components/MessageContextMenu';
+import LocationShare from '@/components/LocationShare';
+import MessageInfo from '@/components/MessageInfo';
 
 interface Reaction {
   emoji: string;
@@ -25,15 +30,12 @@ interface ReplyTo {
 interface Message {
   _id: string;
   text: string;
-  type: 'text' | 'image' | 'audio' | 'video' | 'sticker' | 'scratch' | 'poll' | 'dare' | 'theme';
+  type: 'text' | 'image' | 'audio' | 'video' | 'sticker';
   sender: { _id: string; name: string; nickname?: string; avatar?: string };
   createdAt: string;
   read: boolean;
   reactions: Reaction[];
   replyTo?: ReplyTo;
-  theme?: string;
-  pollOptions?: { text: string; votes: string[] }[];
-  dareText?: string;
 }
 
 interface StickerItem {
@@ -58,123 +60,6 @@ function formatDateLabel(date: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function ScratchCard({ text }: { text: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [scratching, setScratching] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const [revealPct, setRevealPct] = useState(0);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const w = canvas.width;
-    const h = canvas.height;
-    const grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, '#3b82f6');
-    grad.addColorStop(0.5, '#8b5cf6');
-    grad.addColorStop(1, '#ec4899');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-    ctx.font = '16px sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.textAlign = 'center';
-    ctx.fillText('Scratch here ✨', w / 2, h / 2 + 5);
-  }, []);
-
-  const scratch = (x: number, y: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas || revealed) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.arc(x, y, 18, 0, Math.PI * 2);
-    ctx.fill();
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let transparent = 0;
-    for (let i = 3; i < imgData.data.length; i += 4) {
-      if (imgData.data[i] === 0) transparent++;
-    }
-    const pct = transparent / (imgData.data.length / 4) * 100;
-    setRevealPct(Math.round(pct));
-    if (pct > 50 && !revealed) setRevealed(true);
-  };
-
-  const getPos = (e: React.TouchEvent | React.MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
-  };
-
-  return (
-    <div className="relative w-48 h-20 select-none">
-      <div className={`absolute inset-0 flex items-center justify-center text-sm font-medium transition-all duration-500 ${revealed ? 'opacity-100 scale-100' : 'opacity-30 scale-95'}`}>
-        {text}
-      </div>
-      <canvas
-        ref={canvasRef}
-        width={192}
-        height={80}
-        className="absolute inset-0 rounded-xl cursor-pointer"
-        style={{ opacity: revealed ? 0 : 1, transition: 'opacity 0.5s' }}
-        onMouseDown={() => setScratching(true)}
-        onMouseUp={() => setScratching(false)}
-        onMouseLeave={() => setScratching(false)}
-        onMouseMove={(e) => { if (scratching) { const p = getPos(e); scratch(p.x, p.y); } }}
-        onTouchStart={() => setScratching(true)}
-        onTouchEnd={() => setScratching(false)}
-        onTouchMove={(e) => { const p = getPos(e); scratch(p.x, p.y); }}
-      />
-      {revealed && (
-        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-xl">✨</span>
-        </motion.div>
-      )}
-      {!revealed && (
-        <span className="absolute bottom-0 right-1 text-[8px] text-white/30">{revealPct}%</span>
-      )}
-    </div>
-  );
-}
-
-function PollMessage({ options, msgId }: { options: { text: string; votes: string[] }[]; msgId: string }) {
-  const [voted, setVoted] = useState<number | null>(null);
-  const { user } = useAuth();
-  const totalVotes = options.reduce((sum, o) => sum + o.votes.length, 0);
-
-  const handleVote = async (idx: number) => {
-    if (voted !== null) return;
-    setVoted(idx);
-    try { await api.post(`/chat/messages/${msgId}/poll/vote`, { optionIndex: idx }); } catch {}
-  };
-
-  return (
-    <div className="space-y-1.5 min-w-[180px]">
-      <p className="text-[10px] text-white/40 mb-2">📊 Poll</p>
-      {options.map((opt, i) => {
-        const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
-        const isSelected = voted === i;
-        return (
-          <button key={i} onClick={() => handleVote(i)} className="w-full text-left relative rounded-xl overflow-hidden transition-all" disabled={voted !== null}>
-            {voted !== null && (
-              <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="absolute inset-0 bg-primary/20 rounded-xl" />
-            )}
-            <div className={`relative px-3 py-2 text-xs flex items-center justify-between ${isSelected ? 'text-primary-light font-medium' : 'text-white/70'}`}>
-              <span>{opt.text}</span>
-              {voted !== null && <span className="text-[10px] text-white/40">{opt.votes.length + (isSelected ? 1 : 0)} ({pct}%)</span>}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function MessageBubble({
   msg,
   isMine,
@@ -184,6 +69,7 @@ function MessageBubble({
   onDelete,
   onImageOpen,
   onSwipeReply,
+  onContextMenu,
 }: {
   msg: Message;
   isMine: boolean;
@@ -193,6 +79,7 @@ function MessageBubble({
   onDelete: (id: string) => void;
   onImageOpen: (url: string) => void;
   onSwipeReply: (m: Message) => void;
+  onContextMenu: (msg: Message, e: React.MouseEvent) => void;
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -255,10 +142,10 @@ function MessageBubble({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className={`w-full flex ${isConsecutive ? 'mt-0.5' : 'mt-3'} ${isMine ? 'justify-end' : 'justify-start'}`}
+      className={`w-full flex ${isConsecutive ? 'mt-[2px]' : 'mt-3'} ${isMine ? 'justify-end' : 'justify-start'}`}
     >
       <div
         className={`group relative max-w-[80%] ${isMine ? 'items-end' : 'items-start'}`}
@@ -269,45 +156,47 @@ function MessageBubble({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+        onContextMenu={(e) => onContextMenu(msg, e)}
       >
-        {/* Swipe reply indicator */}
         {showSwipeReply && swipeX < -30 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute top-1/2 -translate-y-1/2 -left-8 text-white/40 text-lg">
             ↩️
           </motion.div>
         )}
 
-        {/* Reply preview - WhatsApp style */}
         {msg.replyTo && (
           <div
-            className={`text-xs px-3 pt-2 pb-1.5 rounded-t-xl border-l-2 ${
-              isMine ? 'bg-white/10 border-white/30' : 'bg-white/5 border-primary/40'
+            className={`text-[11px] px-3 pt-2 pb-1.5 rounded-t-2xl border-l-[3px] ${
+              isMine ? 'bg-white/[0.08] border-white/40' : 'bg-white/[0.04] border-primary/60'
             }`}
           >
-            <span className="text-primary-light font-medium text-[11px]">
+            <span className="font-semibold text-primary-light text-[11px]">
               {msg.replyTo.sender?.name || 'Unknown'}
             </span>
-            <p className="text-white/40 truncate max-w-[120px] sm:max-w-[200px] text-[11px] leading-snug">{msg.replyTo.text}</p>
+            <p className="text-white/35 truncate max-w-[180px] sm:max-w-[220px] text-[11px] leading-snug mt-0.5">{msg.replyTo.text}</p>
           </div>
         )}
 
-        {/* Bubble */}
         <div
-          className={`px-4 py-2.5 text-sm leading-relaxed ${
+          className={`px-3 py-2 text-[14px] leading-[1.45] ${
             msg.replyTo
               ? 'rounded-b-2xl rounded-tr-2xl'
               : 'rounded-2xl'
           } ${
             isMine
-              ? 'bg-romantic-gradient text-white rounded-br-md'
-              : 'glass rounded-bl-md'
-          } ${msg.type === 'image' ? 'p-1.5' : ''}`}
+              ? msg.replyTo
+                ? 'bubble-gradient text-white rounded-br-md'
+                : 'bubble-gradient text-white rounded-br-md shadow-[0_1px_4px_rgba(182,122,248,0.3)]'
+              : msg.replyTo
+                ? 'bg-white/[0.08] text-white/90 rounded-bl-md border border-white/[0.04]'
+                : 'bg-white/[0.08] text-white/90 rounded-bl-md border border-white/[0.04] shadow-[0_1px_2px_rgba(0,0,0,0.15)]'
+          } ${msg.type === 'image' ? 'p-1' : ''}`}
         >
           {msg.type === 'image' ? (
             <img
               src={`${API_BASE}${msg.text}`}
               alt=""
-              className="max-w-full rounded-xl max-h-72 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+              className="max-w-full rounded-xl max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => onImageOpen(`${API_BASE}${msg.text}`)}
               loading="lazy"
             />
@@ -315,104 +204,82 @@ function MessageBubble({
             <img
               src={`${API_BASE}${msg.text}`}
               alt="sticker"
-              className="max-w-[180px] rounded-xl object-contain"
+              className="max-w-[160px] object-contain"
               loading="lazy"
             />
           ) : msg.type === 'video' ? (
             <video
               src={`${API_BASE}${msg.text}`}
               controls
-              className="max-w-full rounded-xl max-h-72 object-contain"
+              className="max-w-full rounded-xl max-h-64 object-contain"
               preload="metadata"
             />
           ) : msg.type === 'audio' ? (
             <audio
               src={`${API_BASE}${msg.text}`}
               controls
-              className="max-w-full h-10"
+              className="max-w-full h-9"
               preload="metadata"
             />
-          ) : msg.type === 'scratch' ? (
-            <ScratchCard text={msg.text} />
-          ) : msg.type === 'poll' ? (
-            <PollMessage options={msg.pollOptions || []} msgId={msg._id} />
-          ) : msg.type === 'dare' ? (
-            <div className="text-center py-2">
-              <p className="text-xs text-white/50 mb-1">🎡 Truth or Dare</p>
-              <p className="text-sm font-medium">{msg.dareText || msg.text}</p>
-            </div>
-          ) : msg.type === 'theme' ? (
-            <p className={`whitespace-pre-wrap break-words ${msg.theme || ''}`}>{msg.text}</p>
           ) : (
             <p className="whitespace-pre-wrap break-words">{msg.text}</p>
           )}
 
-          {/* Time + read receipt - WhatsApp style */}
-          <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
-            <span className={`text-[10px] ${isMine ? 'text-white/50' : 'text-white/30'}`}>
+          <div className={`flex items-center gap-1 justify-end -mb-0.5 mt-1`}>
+            <span className={`text-[10px] ${isMine ? 'text-white/40' : 'text-white/25'}`}>
               {formatTime(msg.createdAt)}
             </span>
             {isMine && (
-              <span className={`text-[10px] ${msg.read ? 'text-blue-400' : 'text-white/30'}`}>
+              <span className={msg.read ? 'text-purple-300' : 'text-white/25'}>
                 {msg.read ? (
-                  <svg width="16" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 4L4.5 7.5L11 1M5 4L8.5 7.5L15 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <svg width="14" height="7" viewBox="0 0 14 7" fill="none"><path d="M1 3.5L3.5 6L9 1M4 3.5L6.5 6L12 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 ) : (
-                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 4L4.5 7.5L9 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <svg width="10" height="7" viewBox="0 0 10 7" fill="none"><path d="M1 3.5L3.5 6L9 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 )}
               </span>
             )}
           </div>
         </div>
 
-        {/* Reactions - Instagram style (below bubble) */}
         {reactionSummary && Object.keys(reactionSummary).length > 0 && (
-          <div
-            className={`flex gap-0.5 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className="flex items-center gap-0.5 bg-white/5 backdrop-blur-sm rounded-full px-1.5 py-0.5 border border-white/5">
+          <div className={`flex mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+            <div className="flex items-center gap-0.5 bg-white/[0.06] backdrop-blur-md rounded-full px-1.5 py-[3px] border border-white/[0.06] shadow-sm">
               {Object.entries(reactionSummary).map(([emoji, users]) => (
                 <button
                   key={emoji}
                   onClick={() => onReact(msg._id, emoji)}
-                  className={`text-xs hover:scale-125 transition-transform ${users.includes('self') ? '' : 'opacity-60'}`}
+                  className="text-[13px] hover:scale-125 transition-transform"
                 >
                   {emoji}
                 </button>
               ))}
-              {Object.keys(reactionSummary).length > 0 && (
-                <span className="text-[9px] text-white/30 ml-0.5">{Object.values(reactionSummary).reduce((s, u) => s + u.length, 0)}</span>
-              )}
+              <span className="text-[9px] text-white/25 ml-0.5">{Object.values(reactionSummary).reduce((s, u) => s + u.length, 0)}</span>
             </div>
           </div>
         )}
 
-        {/* Instagram-style quick reaction popup */}
+        {/* Quick reaction popup */}
         <AnimatePresence>
           {showEmojiPicker && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              initial={{ opacity: 0, scale: 0.85, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 10 }}
-              className={`absolute -top-14 ${isMine ? 'right-0' : 'left-0'} flex gap-1 bg-bg-card/95 backdrop-blur-md border border-white/10 rounded-full px-2 py-1.5 shadow-xl z-20`}
+              exit={{ opacity: 0, scale: 0.85, y: 8 }}
+              className={`absolute -top-14 ${isMine ? 'right-0' : 'left-0'} flex gap-0.5 bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/[0.08] rounded-full px-2 py-1.5 shadow-2xl z-20`}
             >
               {QUICK_REACTIONS.map((emoji) => (
                 <motion.button
                   key={emoji}
-                  whileTap={{ scale: 1.4 }}
-                  whileHover={{ scale: 1.3 }}
+                  whileTap={{ scale: 1.5 }}
                   onClick={() => { onReact(msg._id, emoji); setShowEmojiPicker(false); }}
-                  className="text-lg hover:scale-125 transition-transform"
+                  className="text-lg hover:scale-125 transition-transform px-0.5"
                 >
                   {emoji}
                 </motion.button>
               ))}
               <button
                 onClick={() => { setShowEmojiPicker(false); onReply(msg); }}
-                className="text-white/40 hover:text-white/70 text-xs px-1 flex items-center"
+                className="text-white/30 hover:text-white/60 text-xs px-1 flex items-center"
               >
                 ↩️
               </button>
@@ -420,13 +287,10 @@ function MessageBubble({
           )}
         </AnimatePresence>
 
-        {/* Hover actions - desktop */}
-        <div className={`absolute -top-8 ${isMine ? 'right-0' : 'left-0'} hidden group-hover:flex gap-1 bg-bg-card/95 backdrop-blur-md border border-white/10 rounded-full px-1.5 py-1 shadow-xl z-10`}>
-          <button onClick={() => onReact(msg._id, '❤️')} className="hover:scale-125 transition-transform text-sm">❤️</button>
-          <button onClick={() => onReply(msg)} className="hover:scale-125 transition-transform text-sm">↩️</button>
-          {isMine && (
-            <button onClick={() => onDelete(msg._id)} className="hover:scale-125 transition-transform text-sm">🗑️</button>
-          )}
+        {/* Desktop hover actions */}
+        <div className={`absolute -top-9 ${isMine ? 'right-0' : 'left-0'} hidden group-hover:flex gap-0.5 bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/[0.08] rounded-full px-1.5 py-1 shadow-2xl z-10`}>
+          <button onClick={() => onReact(msg._id, '❤️')} className="hover:scale-125 transition-transform text-sm px-0.5">❤️</button>
+          <button onClick={() => onReply(msg)} className="hover:scale-125 transition-transform text-sm px-0.5">↩️</button>
         </div>
       </div>
     </motion.div>
@@ -455,8 +319,6 @@ export default function ChatPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; startY: number; delay: number; driftX: number; travelY: number; scaleTarget: number }[]>([]);
-  const [showNavMenu, setShowNavMenu] = useState(false);
-  const [showMenuBtn, setShowMenuBtn] = useState(false);
   const [floatingKisses, setFloatingKisses] = useState<{ id: number }[]>([]);
   const [floatingHugs, setFloatingHugs] = useState<{ id: number }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -464,7 +326,6 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [showLovePicker, setShowLovePicker] = useState(false);
   const [stickers, setStickers] = useState<StickerItem[]>([]);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -473,14 +334,12 @@ export default function ChatPage() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [lastSeen, setLastSeen] = useState<string | null>(null);
 
-  // Creative features state
-  const [showScratchModal, setShowScratchModal] = useState(false);
-  const [scratchText, setScratchText] = useState('');
-  const [showPollModal, setShowPollModal] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState(['', '']);
-  const [showThemePicker, setShowThemePicker] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState('');
+  // Feature state
+  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ msg: Message; position: { x: number; y: number } } | null>(null);
+  const [showLocationShare, setShowLocationShare] = useState(false);
+  const [messageInfo, setMessageInfo] = useState<Message | null>(null);
 
   // Call state
   const [incomingCall, setIncomingCall] = useState<{ from: string; callType: 'audio' | 'video' } | null>(null);
@@ -627,6 +486,12 @@ export default function ChatPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
     loadMessages();
     const socket = getSocket();
     if (!socket) return;
@@ -635,6 +500,15 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, msg]);
       if (user?.id && String(msg.sender._id) !== String(user?.id)) {
         api.patch('/chat/messages/read', { messageIds: [msg._id] }).catch(() => {});
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const senderName = msg.sender.nickname || msg.sender.name || 'Partner';
+          let body = msg.text;
+          if (msg.type === 'image') body = '📷 Photo';
+          else if (msg.type === 'sticker') body = '🎨 Sticker';
+          else if (msg.type === 'video') body = '🎬 Video';
+          else if (msg.type === 'audio') body = '🎤 Voice message';
+          new Notification(senderName, { body, icon: partnerAvatar ? `${API_BASE}${partnerAvatar}` : undefined, tag: 'chat-message' });
+        }
       }
     });
 
@@ -833,7 +707,6 @@ export default function ChatPage() {
     const id = Date.now() + Math.random();
     setFloatingHugs((prev) => [...prev, { id }]);
     setTimeout(() => setFloatingHugs((prev) => prev.filter((h) => h.id !== id)), 2500);
-    setShowLovePicker(false);
   };
 
   const handleKiss = () => {
@@ -841,12 +714,6 @@ export default function ChatPage() {
     const id = Date.now() + Math.random();
     setFloatingKisses((prev) => [...prev, { id }]);
     setTimeout(() => setFloatingKisses((prev) => prev.filter((k) => k.id !== id)), 2500);
-    setShowLovePicker(false);
-  };
-
-  const sendEmoji = (emoji: string) => {
-    getSocket()?.emit('send:emoji', { emoji });
-    setShowLovePicker(false);
   };
 
   const startRecording = async () => {
@@ -916,69 +783,9 @@ export default function ChatPage() {
     if (stickerInputRef.current) stickerInputRef.current.value = '';
   };
 
-  const sendScratchCard = async () => {
-    if (!scratchText.trim()) return;
-    try {
-      await api.post('/chat/messages', { text: scratchText, type: 'scratch' });
-      setShowScratchModal(false);
-      setScratchText('');
-    } catch {}
-  };
-
-  const sendPoll = async () => {
-    const validOptions = pollOptions.filter((o) => o.trim());
-    if (validOptions.length < 2) return;
-    try {
-      await api.post('/chat/messages', {
-        text: pollQuestion || 'Vote now!',
-        type: 'poll',
-        pollOptions: validOptions.map((text) => ({ text, votes: [] })),
-      });
-      setShowPollModal(false);
-      setPollQuestion('');
-      setPollOptions(['', '']);
-    } catch {}
-  };
-
-  const DARES = [
-    'Send a voice note singing a song 🎤',
-    'Send a selfie right now 📸',
-    'Text "I love you" 5 times 💙',
-    'Send your favorite emoji and explain why 🤔',
-    'Record a 10-second dance video 💃',
-    'Send a screenshot of your home screen 📱',
-    'Tell me what you ate today 🍕',
-    'Send a voice note saying something romantic 🥰',
-    'Text me a joke 😂',
-    'Send a photo of what you\'re wearing 👗',
-    'Tell me your dream vacation 🌴',
-    'Send a voice note whispering "I love you" 🤫',
-  ];
-
-  const sendDare = async () => {
-    const dare = DARES[Math.floor(Math.random() * DARES.length)];
-    try {
-      await api.post('/chat/messages', { text: dare, type: 'dare', dareText: dare });
-    } catch {}
-  };
-
-  const THEMES: { label: string; class: string; preview: string }[] = [
-    { label: 'Galaxy', class: 'bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 bg-clip-text text-transparent', preview: '🌌' },
-    { label: 'Fire', class: 'bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 bg-clip-text text-transparent', preview: '🔥' },
-    { label: 'Ocean', class: 'bg-gradient-to-r from-cyan-400 via-blue-500 to-teal-500 bg-clip-text text-transparent', preview: '🌊' },
-    { label: 'Neon', class: 'text-green-400 font-bold', preview: '💚' },
-    { label: 'Gold', class: 'bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 bg-clip-text text-transparent', preview: '✨' },
-  ];
-
-  const sendThemedMessage = async (theme: string) => {
-    if (!text.trim()) return;
-    const value = text;
-    setText('');
-    try {
-      await api.post('/chat/messages', { text: value, type: 'theme', theme });
-      setShowThemePicker(false);
-      setSelectedTheme('');
-    } catch { setText(value); }
+  const handleContextMenu = (msg: Message, e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ msg, position: { x: e.clientX, y: e.clientY } });
   };
 
   const grouped: { date: string; items: Message[] }[] = [];
@@ -996,57 +803,90 @@ export default function ChatPage() {
     <ProtectedRoute>
       <main className="relative min-h-screen flex flex-col">
         {/* Header */}
-        <div className="glass sticky top-0 z-20 px-4 py-3 flex items-center gap-3 rounded-b-2xl">
-          <div className="relative shrink-0">
-            <div className="w-10 h-10 rounded-full bg-romantic-gradient flex items-center justify-center text-lg font-bold overflow-hidden">
-              {partnerAvatar ? (
-                <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
-              ) : (
-                partnerOnline ? '💕' : '💔'
+        <header className="sticky top-0 z-20 px-3 pt-2 pb-1">
+          <div className="glass rounded-2xl px-3 py-2 flex items-center gap-3 shadow-[0_4px_30px_rgba(0,0,0,0.3)] border border-white/[0.06]">
+            {/* Back button */}
+            <Link
+              href="/dashboard"
+              className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white/60">
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+            </Link>
+
+            {/* Avatar with animated ring */}
+            <div className="relative shrink-0">
+              <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-br from-primary via-accent to-primary">
+                <div className="w-full h-full rounded-full overflow-hidden bg-bg">
+                  {partnerAvatar ? (
+                    <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-base">
+                      {partnerOnline ? '💕' : '💔'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {partnerOnline && (
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-bg-card shadow-[0_0_6px_rgba(74,222,128,0.4)]" />
               )}
             </div>
-            {partnerOnline && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
-            )}
+
+            {/* Name + Status */}
+            <div className="flex-1 min-w-0">
+              <h1 className="font-display text-[15px] font-semibold gradient-text truncate leading-tight">
+                {partnerName || 'Our Chat'}
+              </h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {partnerTyping ? (
+                  <span className="flex items-center gap-[3px]">
+                    <span className="w-[5px] h-[5px] bg-green-400 rounded-full" style={{ animation: 'typing-dot 1.4s infinite ease-in-out', animationDelay: '0ms' }} />
+                    <span className="w-[5px] h-[5px] bg-green-400 rounded-full" style={{ animation: 'typing-dot 1.4s infinite ease-in-out', animationDelay: '200ms' }} />
+                    <span className="w-[5px] h-[5px] bg-green-400 rounded-full" style={{ animation: 'typing-dot 1.4s infinite ease-in-out', animationDelay: '400ms' }} />
+                  </span>
+                ) : partnerOnline ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                    <span className="text-[11px] text-green-400/80">online</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-white/30">
+                    {lastSeen ? `last seen ${formatTime(lastSeen)}` : 'offline'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Call buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => initiateCall('audio')}
+                disabled={activeCall}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-30"
+                title="Voice Call"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-white/60">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => initiateCall('video')}
+                disabled={activeCall}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-30"
+                title="Video Call"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-white/60">
+                  <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
+                  <rect x="2" y="6" width="14" height="12" rx="2" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-display text-lg gradient-text truncate">{partnerName || 'Our Chat'}</h1>
-              <p className="text-xs text-white/40 truncate">
-                {partnerTyping
-                  ? 'typing...'
-                  : partnerOnline
-                    ? 'Online'
-                    : lastSeen
-                      ? `Last seen ${formatTime(lastSeen)}`
-                      : 'Offline'}
-              </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => initiateCall('audio')}
-              disabled={activeCall}
-              className="p-2 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30"
-              title="Voice Call"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/70">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => initiateCall('video')}
-              disabled={activeCall}
-              className="p-2 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30"
-              title="Video Call"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/70">
-                <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
-                <rect x="2" y="6" width="14" height="12" rx="2" />
-              </svg>
-            </button>
-          </div>
-        </div>
+        </header>
 
         {/* Messages */}
         <div
@@ -1064,7 +904,7 @@ export default function ChatPage() {
               });
             }
           }}
-          className="flex-1 px-3 pt-3 pb-44 overflow-y-auto flex flex-col"
+          className="flex-1 px-2 sm:px-4 pt-3 pb-44 overflow-y-auto flex flex-col relative z-[1]"
         >
           {loadingMore && (
             <div className="flex justify-center py-3">
@@ -1083,7 +923,7 @@ export default function ChatPage() {
                   });
                 });
               }}
-              className="text-xs text-white/40 hover:text-white/60 py-2 text-center"
+              className="text-[11px] text-white/30 hover:text-white/50 py-2 text-center"
             >
               Load older messages
             </button>
@@ -1093,16 +933,20 @@ export default function ChatPage() {
               <span className="w-6 h-6 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-8 gap-2">
-              <span className="text-5xl mb-2 animate-pulse">💌</span>
-              <p className="text-white/60 text-sm font-medium">No messages yet</p>
-              <p className="text-white/30 text-xs">Say something sweet to start 💕</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-8 gap-3">
+              <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+                <span className="text-3xl">💌</span>
+              </div>
+              <div>
+                <p className="text-white/50 text-sm font-medium">No messages yet</p>
+                <p className="text-white/25 text-xs mt-1">Say something sweet to start the conversation</p>
+              </div>
             </div>
           ) : (
             grouped.map((group) => (
               <div key={group.date}>
                 <div className="flex justify-center my-4">
-                  <span className="text-[10px] text-white/30 bg-white/5 px-3 py-1 rounded-full">
+                  <span className="text-[10px] text-white/30 bg-white/[0.04] backdrop-blur-sm px-3 py-1 rounded-full border border-white/[0.04]">
                     {group.date}
                   </span>
                 </div>
@@ -1123,6 +967,7 @@ export default function ChatPage() {
                       onDelete={handleDelete}
                       onImageOpen={setFullscreenImage}
                       onSwipeReply={setReplyingTo}
+                      onContextMenu={handleContextMenu}
                     />
                   );
                 })}
@@ -1136,12 +981,12 @@ export default function ChatPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="glass rounded-2xl rounded-bl-md px-4 py-3 w-fit mt-2"
+                className="bg-white/[0.08] rounded-2xl rounded-bl-md px-4 py-2 w-fit mt-2 border border-white/[0.04]"
               >
-                <span className="inline-flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="inline-flex gap-[3px] items-center px-1 py-1.5">
+                  <span className="w-[6px] h-[6px] bg-white/30 rounded-full" style={{ animation: 'typing-dot 1.4s infinite ease-in-out', animationDelay: '0ms' }} />
+                  <span className="w-[6px] h-[6px] bg-white/30 rounded-full" style={{ animation: 'typing-dot 1.4s infinite ease-in-out', animationDelay: '200ms' }} />
+                  <span className="w-[6px] h-[6px] bg-white/30 rounded-full" style={{ animation: 'typing-dot 1.4s infinite ease-in-out', animationDelay: '400ms' }} />
                 </span>
               </motion.div>
             )}
@@ -1161,7 +1006,7 @@ export default function ChatPage() {
                 bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
                 setShowScrollBtn(false);
               }}
-              className="fixed bottom-36 right-4 z-20 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg hover:bg-white/20 transition-colors"
+              className="fixed bottom-36 right-4 z-20 w-9 h-9 rounded-full bg-[#1a1a2e]/90 backdrop-blur-md border border-white/[0.08] flex items-center justify-center shadow-xl hover:bg-[#1a1a2e] transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-white/70">
                 <path d="M12 5v14M5 12l7 7 7-7" />
@@ -1232,81 +1077,81 @@ export default function ChatPage() {
         </AnimatePresence>
 
         {/* Input bar */}
-        <div className={`fixed left-0 right-0 z-20 px-3 transition-all duration-300 ${showMenuBtn ? 'bottom-[76px]' : 'bottom-2'}`}>
-          <form
-            onSubmit={previewFile ? (e) => { e.preventDefault(); sendImage(); } : handleSend}
-            className="glass rounded-2xl flex items-end gap-1 p-2 max-w-md mx-auto"
-          >
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <input
-              type="file"
-              accept="video/*"
-              ref={videoInputRef}
-              onChange={handleVideoSelect}
-              className="hidden"
-            />
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowAttachMenu(!showAttachMenu)}
-                className="p-2 rounded-xl hover:bg-white/10 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-white/60">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                </svg>
-              </button>
-              <AnimatePresence>
-                {showAttachMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full mb-2 left-0 glass rounded-2xl px-2 py-2 flex gap-2 shadow-lg z-10"
-                  >
-                    <button type="button" onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">📷</span>
+        <div className="fixed left-0 right-0 z-20 px-3 transition-all duration-300 bottom-2">
+          <div className="max-w-md mx-auto">
+            <form
+              onSubmit={previewFile ? (e) => { e.preventDefault(); sendImage(); } : handleSend}
+              className="glass rounded-2xl shadow-[0_-2px_20px_rgba(0,0,0,0.2)] border border-white/[0.06] flex items-end gap-1.5 p-1.5"
+            >
+              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageSelect} className="hidden" />
+              <input type="file" accept="video/*" ref={videoInputRef} onChange={handleVideoSelect} className="hidden" />
+
+              {/* Attach button */}
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAttachMenu(!showAttachMenu)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={`w-5 h-5 text-white/50 transition-transform duration-200 ${showAttachMenu ? 'rotate-45' : ''}`}>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+                <AnimatePresence>
+                  {showAttachMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                      className="absolute bottom-full mb-2 left-0 glass rounded-2xl px-2 py-2 flex gap-1 shadow-2xl z-10 border border-white/[0.06]"
+                    >
+                    <button type="button" onClick={() => { fileInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
                       <span className="text-[9px] text-white/40">Photo</span>
                     </button>
-                    <button type="button" onClick={() => { videoInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">📹</span>
+                    <button type="button" onClick={() => { videoInputRef.current?.click(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>
                       <span className="text-[9px] text-white/40">Video</span>
                     </button>
-                    <button type="button" onClick={() => { setShowAttachMenu(false); if (!isRecording) startRecording(); else stopRecording(); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">{isRecording ? '⏹️' : '🎤'}</span>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); if (!isRecording) startRecording(); else stopRecording(); }} className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                      {isRecording ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-red-400"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
+                      )}
                       <span className="text-[9px] text-white/40">{isRecording ? 'Stop' : 'Voice'}</span>
                     </button>
-                    <button type="button" onClick={() => { setShowStickerPicker(!showStickerPicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">🎨</span>
+                    <button type="button" onClick={() => { setShowStickerPicker(!showStickerPicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>
                       <span className="text-[9px] text-white/40">Sticker</span>
                     </button>
-                    <button type="button" onClick={() => { setShowScratchModal(true); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">🎰</span>
-                      <span className="text-[9px] text-white/40">Scratch</span>
+                    <button type="button" onClick={() => { setShowGifPicker(!showGifPicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M7 8h4M7 12h10" /></svg>
+                      <span className="text-[9px] text-white/40">GIF</span>
                     </button>
-                    <button type="button" onClick={() => { setShowPollModal(true); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">📊</span>
-                      <span className="text-[9px] text-white/40">Poll</span>
+                    <button type="button" onClick={() => { setShowLocationShare(true); setShowAttachMenu(false); }} className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
+                      <span className="text-[9px] text-white/40">Location</span>
                     </button>
-                    <button type="button" onClick={() => { sendDare(); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">🎡</span>
-                      <span className="text-[9px] text-white/40">Dare</span>
-                    </button>
-                    <button type="button" onClick={() => { setShowThemePicker(!showThemePicker); setShowAttachMenu(false); }} className="flex flex-col items-center gap-0.5 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                      <span className="text-lg">🌈</span>
-                      <span className="text-[9px] text-white/40">Theme</span>
-                    </button>
+                    <div className="w-px bg-white/10 mx-0.5" />
+                    <Link href="/dashboard" onClick={() => setShowAttachMenu(false)}>
+                      <div className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9,22 9,12 15,12 15,22" /></svg>
+                        <span className="text-[9px] text-white/40">Home</span>
+                      </div>
+                    </Link>
+                    <Link href="/memories" onClick={() => setShowAttachMenu(false)}>
+                      <div className="flex flex-col items-center gap-1 p-2.5 hover:bg-white/10 rounded-xl transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-white/60"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>
+                        <span className="text-[9px] text-white/40">Memory</span>
+                      </div>
+                    </Link>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
             {isRecording && (
-              <button type="button" onClick={stopRecording} className="shrink-0 p-2 rounded-xl bg-red-500/30 text-red-300 font-mono text-xs flex items-center gap-1">
+              <button type="button" onClick={stopRecording} className="shrink-0 w-9 h-9 rounded-full bg-red-500/20 text-red-300 font-mono text-xs flex items-center justify-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
                 {String(recordingTime).padStart(2, '0')}s
               </button>
@@ -1321,47 +1166,43 @@ export default function ChatPage() {
                   (e.target as HTMLTextAreaElement).form?.requestSubmit();
                 }
               }}
-              placeholder={previewFile ? 'Add a caption...' : 'Type a message...'}
+              placeholder={previewFile ? 'Add a caption...' : 'Message...'}
               rows={1}
-              className="flex-1 bg-transparent rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-white/30 resize-none overflow-y-auto max-h-32"
+              className="flex-1 bg-white/[0.04] rounded-xl px-3.5 py-2 text-sm outline-none placeholder:text-white/25 resize-none overflow-y-auto max-h-32 border border-white/[0.04] focus:border-white/[0.08] transition-colors"
             />
             <div className="relative shrink-0">
               <button
                 type="button"
-                onClick={() => setShowLovePicker(!showLovePicker)}
-                className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+                onClick={() => setShowFullEmojiPicker(!showFullEmojiPicker)}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-all"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-red-400">
-                  <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.218l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white/50">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                  <line x1="9" y1="9" x2="9.01" y2="9" />
+                  <line x1="15" y1="9" x2="15.01" y2="9" />
                 </svg>
               </button>
               <AnimatePresence>
-                {showLovePicker && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="fixed bottom-20 left-0 right-0 mx-auto w-fit glass rounded-2xl px-2 sm:px-3 py-2 shadow-lg"
-                  >
-                    <div className="flex gap-1 sm:gap-2 flex-nowrap">
-                      <button type="button" onClick={() => sendEmoji('🤗')} className="text-lg sm:text-xl hover:scale-125 transition-transform">🤗</button>
-                      <button type="button" onClick={() => sendEmoji('💋')} className="text-lg sm:text-xl hover:scale-125 transition-transform">💋</button>
-                      <button type="button" onClick={() => sendEmoji('❤️')} className="text-lg sm:text-xl hover:scale-125 transition-transform">❤️</button>
-                      <button type="button" onClick={() => sendEmoji('😍')} className="text-lg sm:text-xl hover:scale-125 transition-transform">😍</button>
-                      <button type="button" onClick={() => sendEmoji('🥰')} className="text-lg sm:text-xl hover:scale-125 transition-transform">🥰</button>
-                      <button type="button" onClick={() => sendEmoji('😘')} className="text-lg sm:text-xl hover:scale-125 transition-transform">😘</button>
-                      <button type="button" onClick={() => sendEmoji('💕')} className="text-lg sm:text-xl hover:scale-125 transition-transform">💕</button>
-                      <button type="button" onClick={() => sendEmoji('💖')} className="text-lg sm:text-xl hover:scale-125 transition-transform">💖</button>
-                    </div>
-                  </motion.div>
+                {showFullEmojiPicker && (
+                  <div className="fixed bottom-20 left-0 right-0 mx-auto w-[340px] px-4 z-30">
+                    <EmojiPicker
+                      onSelect={(emoji) => {
+                        setText((prev) => prev + emoji);
+                        setShowFullEmojiPicker(false);
+                        inputRef.current?.focus();
+                      }}
+                      onClose={() => setShowFullEmojiPicker(false)}
+                    />
+                  </div>
                 )}
               </AnimatePresence>
             </div>
             <motion.button
-              whileTap={{ scale: 0.92 }}
+              whileTap={{ scale: 0.9 }}
               type="submit"
               disabled={(!text.trim() && !previewFile) || uploading}
-              className="shrink-0 p-2.5 rounded-xl bg-romantic-gradient disabled:opacity-30 transition-opacity"
+              className="shrink-0 w-9 h-9 rounded-full bg-romantic-gradient flex items-center justify-center disabled:opacity-20 transition-all duration-200 shadow-[0_2px_12px_rgba(139,92,246,0.3)] disabled:shadow-none"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                 <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
@@ -1407,9 +1248,29 @@ export default function ChatPage() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
 
-        {/* Fullscreen image viewer */}
+          {/* GIF picker */}
+          <AnimatePresence>
+            {showGifPicker && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="max-w-md mx-auto mt-2"
+              >
+                <GifPicker
+                  onSelect={(emoji) => {
+                    setText((prev) => prev + emoji);
+                    setShowGifPicker(false);
+                    inputRef.current?.focus();
+                  }}
+                  onClose={() => setShowGifPicker(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          </div>
+        </div>
         <AnimatePresence>
           {fullscreenImage && (
             <motion.div
@@ -1484,140 +1345,58 @@ export default function ChatPage() {
             </motion.div>
           ))}
         </AnimatePresence>
-
-        {/* Pill trigger — always at bottom */}
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setShowMenuBtn((s) => !s)}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-10 h-1.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-        />
-
-        {/* Menu cluster — appears above input when triggered */}
-        <AnimatePresence>
-          {showMenuBtn && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30"
-            >
-              <div className="relative flex items-center justify-center">
-                <AnimatePresence>
-                  {showNavMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="absolute right-full mr-3"
-                    >
-                      <Link href="/dashboard" onClick={() => { setShowNavMenu(false); setShowMenuBtn(false); }}>
-                        <motion.div
-                          whileTap={{ scale: 0.9 }}
-                          className="w-12 h-12 rounded-full glass flex items-center justify-center text-xl shadow-lg"
-                        >
-                          🏠
-                        </motion.div>
-                      </Link>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => {
-                    if (showNavMenu) {
-                      setShowNavMenu(false);
-                      setShowMenuBtn(false);
-                    } else {
-                      setShowNavMenu(true);
-                    }
-                  }}
-                  className="w-12 h-12 rounded-full bg-romantic-gradient shadow-lg flex items-center justify-center text-lg z-10"
-                >
-                  {showNavMenu ? '✕' : '☰'}
-                </motion.button>
-
-                <AnimatePresence>
-                  {showNavMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      className="absolute left-full ml-3"
-                    >
-                      <Link href="/memories" onClick={() => { setShowNavMenu(false); setShowMenuBtn(false); }}>
-                        <motion.div
-                          whileTap={{ scale: 0.9 }}
-                          className="w-12 h-12 rounded-full glass flex items-center justify-center text-xl shadow-lg"
-                        >
-                          📸
-                        </motion.div>
-                      </Link>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </main>
 
-      {/* Scratch Card Modal */}
+      {/* Message Context Menu */}
       <AnimatePresence>
-        {showScratchModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-6" onClick={() => setShowScratchModal(false)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass rounded-3xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-display gradient-text text-center mb-4">🎰 Scratch Card</h3>
-              <p className="text-xs text-white/40 text-center mb-3">Partner has to scratch to reveal your message!</p>
-              <textarea value={scratchText} onChange={(e) => setScratchText(e.target.value)} placeholder="Type your hidden message..." rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/60 resize-none mb-4" />
-              <div className="flex gap-2">
-                <button onClick={() => setShowScratchModal(false)} className="flex-1 py-2 rounded-xl glass text-sm">Cancel</button>
-                <button onClick={sendScratchCard} disabled={!scratchText.trim()} className="flex-1 py-2 rounded-xl bg-romantic-gradient text-sm font-medium disabled:opacity-30">Send 🎰</button>
-              </div>
-            </motion.div>
+        {contextMenu && (
+          <MessageContextMenu
+            position={contextMenu.position}
+            items={[
+              { icon: '↩️', label: 'Reply', onClick: () => setReplyingTo(contextMenu.msg) },
+              { icon: '❤️', label: 'React', onClick: () => handleReact(contextMenu.msg._id, '❤️') },
+              { icon: '📋', label: 'Info', onClick: () => setMessageInfo(contextMenu.msg) },
+              { icon: '🗑️', label: 'Delete', onClick: () => handleDelete(contextMenu.msg._id), danger: true },
+            ]}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Location Share */}
+      <AnimatePresence>
+        {showLocationShare && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-6"
+            onClick={() => setShowLocationShare(false)}
+          >
+            <LocationShare
+              onSend={async (loc) => {
+                const text = loc.label
+                  ? `${loc.label}: https://maps.google.com/?q=${loc.lat},${loc.lng}`
+                  : `https://maps.google.com/?q=${loc.lat},${loc.lng}`;
+                try { await api.post('/chat/messages', { text }); } catch {}
+                setShowLocationShare(false);
+              }}
+              onClose={() => setShowLocationShare(false)}
+            />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Poll Modal */}
+      {/* Message Info */}
       <AnimatePresence>
-        {showPollModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-6" onClick={() => setShowPollModal(false)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass rounded-3xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-display gradient-text text-center mb-4">📊 Create Poll</h3>
-              <input value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="Question (optional)..." className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/60 mb-3" />
-              {pollOptions.map((opt, i) => (
-                <input key={i} value={opt} onChange={(e) => { const newOpts = [...pollOptions]; newOpts[i] = e.target.value; setPollOptions(newOpts); }} placeholder={`Option ${i + 1}...`} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/60 mb-2" />
-              ))}
-              {pollOptions.length < 4 && (
-                <button onClick={() => setPollOptions([...pollOptions, ''])} className="w-full py-1.5 rounded-xl border border-dashed border-white/10 text-xs text-white/30 mb-3">+ Add option</button>
-              )}
-              <div className="flex gap-2">
-                <button onClick={() => setShowPollModal(false)} className="flex-1 py-2 rounded-xl glass text-sm">Cancel</button>
-                <button onClick={sendPoll} disabled={pollOptions.filter((o) => o.trim()).length < 2} className="flex-1 py-2 rounded-xl bg-romantic-gradient text-sm font-medium disabled:opacity-30">Send 📊</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Theme Picker */}
-      <AnimatePresence>
-        {showThemePicker && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="fixed bottom-[140px] left-0 right-0 z-30 px-4">
-            <div className="glass rounded-2xl p-3 max-w-md mx-auto">
-              <p className="text-[10px] text-white/40 text-center mb-2">Type a message then pick a theme</p>
-              <div className="flex gap-2 justify-center">
-                {THEMES.map((t) => (
-                  <button key={t.label} onClick={() => sendThemedMessage(t.class)} className="flex flex-col items-center gap-1 p-2 hover:bg-white/10 rounded-xl transition-colors">
-                    <span className="text-xl">{t.preview}</span>
-                    <span className="text-[8px] text-white/40">{t.label}</span>
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => setShowThemePicker(false)} className="w-full text-[10px] text-white/30 mt-2">cancel</button>
-            </div>
-          </motion.div>
+        {messageInfo && (
+          <MessageInfo
+            readBy={messageInfo.read ? [messageInfo.sender._id] : []}
+            deliveredTo={[messageInfo.sender._id]}
+            partnerName={partnerName}
+            sentAt={messageInfo.createdAt}
+            onClose={() => setMessageInfo(null)}
+          />
         )}
       </AnimatePresence>
 
