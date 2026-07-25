@@ -92,7 +92,7 @@ export default function IncomingCallModal({
             {callerAvatar ? (
               <img src={`${API_BASE}${callerAvatar}`} alt="" className="w-full h-full object-cover" />
             ) : (
-              '💕'
+              '💞'
             )}
           </motion.div>
         </div>

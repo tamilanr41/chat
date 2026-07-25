@@ -194,7 +194,7 @@ export default function DashboardPage() {
               {user?.avatar ? (
                 <img src={`https://chat-back-ac0h.onrender.com${user.avatar}`} alt="" className="w-full h-full object-cover" />
               ) : (
-                user?.name?.charAt(0).toUpperCase() || '💙'
+                user?.name?.charAt(0).toUpperCase() || '💞'
               )}
             </div>
           </button>

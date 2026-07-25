@@ -824,7 +824,7 @@ export default function ChatPage() {
                     <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-base">
-                      {partnerOnline ? '💕' : '💔'}
+                      💞
                     </div>
                   )}
                 </div>

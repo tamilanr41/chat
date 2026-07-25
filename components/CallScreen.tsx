@@ -108,7 +108,7 @@ export default function CallScreen({
             {partnerAvatar ? (
               <img src={`${API_BASE}${partnerAvatar}`} alt="" className="w-full h-full object-cover" />
             ) : (
-              '💕'
+              '💞'
             )}
           </motion.div>
           <h2 className="text-2xl font-display gradient-text">{partnerName}</h2>
