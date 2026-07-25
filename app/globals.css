@@ -32,7 +32,7 @@ body::before {
   position: fixed;
   inset: 0;
   background-image: url('/bg.png');
-  background-size: contain;
+  background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
   pointer-events: none;
