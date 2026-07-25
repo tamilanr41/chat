@@ -499,15 +499,6 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, msg]);
       if (user?.id && String(msg.sender._id) !== String(user?.id)) {
         api.patch('/chat/messages/read', { messageIds: [msg._id] }).catch(() => {});
-        if ('Notification' in window && Notification.permission === 'granted') {
-          const senderName = msg.sender.nickname || msg.sender.name || 'Partner';
-          let body = msg.text;
-          if (msg.type === 'image') body = '📷 Photo';
-          else if (msg.type === 'sticker') body = '🎨 Sticker';
-          else if (msg.type === 'video') body = '🎬 Video';
-          else if (msg.type === 'audio') body = '🎤 Voice message';
-          new Notification(senderName, { body, icon: partnerAvatar ? `${API_BASE}${partnerAvatar}` : undefined, tag: 'chat-message' });
-        }
       }
     });
 
