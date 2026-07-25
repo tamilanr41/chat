@@ -9,6 +9,7 @@ import useWebRTC from '@/hooks/useWebRTC';
 import { useAuth } from '@/lib/auth-context';
 import api from '@/lib/api';
 import { getSocket } from '@/lib/socket';
+import { registerPush } from '@/lib/push';
 import Link from 'next/link';
 import EmojiPicker from '@/components/EmojiPicker';
 import GifPicker from '@/components/GifPicker';
@@ -486,9 +487,7 @@ export default function ChatPage() {
   }, [user?.id]);
 
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    registerPush().catch(() => {});
   }, []);
 
   useEffect(() => {
